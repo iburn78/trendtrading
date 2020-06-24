@@ -1,19 +1,15 @@
-# import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
 import time
 import pandas as pd
-import xlsxwriter
-import os.path
 from tabulate import tabulate 
 
 WORKING_DIR_PATH = 'C:/Users/user/Projects/trendtrading/'
 TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
-
-API_REQ_TIME_INTERVAL = 0.3 # min = 0.2
-MARKET_START_TIME = QTime(9, 1, 0)
-MARKET_FINISH_TIME = QTime(15, 19, 0)
+API_REQ_TIME_INTERVAL = 0.3 # min: 0.2
+# MARKET_START_TIME = QTime(9, 1, 0)
+# MARKET_FINISH_TIME = QTime(15, 19, 0)
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -275,7 +271,7 @@ class Kiwoom(QAxWidget):
         # implement getting-remained-data for longer period. 
         return df
 
-    def get_account_stock_list(self):
+    def get_account_stock_list(self, ACCOUNT_NO):
         self.set_input_value("계좌번호", ACCOUNT_NO)
         self.comm_rq_data("opw00018_req", "opw00018", 0, "2000")
         

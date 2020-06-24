@@ -1,4 +1,6 @@
+import sys, os.path
 from Kiwoom import *
+import xlsxwriter
 import random
 
 MASTER_BOOK_FILE = 'data/master_book.xlsx'
@@ -15,10 +17,13 @@ TAX_RATE = 0.003
 class TrTrader(): 
     def __init__(self):
         self.km = Kiwoom()
+        if not self.km.connect_status: 
+            sys.exit("System Exit")
         self.master_book_initiator(START_CASH, replace = False)
         # should develop master_book integrity checker
         # ensure cash > 0 in master_book
 
+    def run(self):
         # buy_list to be generated either from master_book analysis (reinv) or from outside (new purchase)
         self.buy_list = pd.DataFrame(columns = ['code', 'amount', 'note'])
         self.buy_list.loc[len(self.buy_list)] = ['005930', 1, 'yet']
@@ -273,6 +278,6 @@ class TrTrader():
 
         
 if __name__ == "__main__": 
-    app = QApplication([''])
+    app = QApplication(sys.argv)
     trtrader = TrTrader()
     
