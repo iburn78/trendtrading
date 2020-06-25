@@ -1,108 +1,364 @@
+import sys, os.path
 from Kiwoom import *
+import xlsxwriter
+import random
 
-class TrTrader(QMainWindow):
+MASTER_BOOK_FILE = 'data/master_book.xlsx'
+BOUNDS_FILE = 'bounds.xlsx'
+# RUN_WAIT_INTERVAL = 30*60 
+
+START_CASH = 100000000
+TICKET_SIZE = 3000000 # Target amount to be purchased in KRW
+MIN_CASH_FOR_PURCHASE = TICKET_SIZE*1.5
+ACCOUNT_NO = '8135010411' # may create master_book for each account_no
+MAX_REINVESTMENT = 4 # total 5 investments max
+MAX_ELEVATION = 10 # 
+FEE_RATE = 0.00015
+TAX_RATE = 0.003
+# DECISION_MADE_DICTIONARY: new_entry, reinvested, all_sold, partial_sold, LLB_suspend, LLB_released, bounds_elevated, bounds_elevated_no_cash
+
+class TrTrader(): 
     def __init__(self):
-        super().__init__()
         self.km = Kiwoom()
-        if km.connect_status == False: 
-            pass
-        self.load_master_book() 
+        if not self.km.connect_status: 
+            sys.exit("System Exit")
+        self.master_book_initiator(START_CASH, replace = False)
+        # should develop master_book integrity checker
+        # ensure cash > 0 in master_book / buy_list creation
+        self.trtrade_list = pd.DataFrame(columns = ['code', 'amount', 'buy_sell', 'note'])
+        self.bounds_prep()
+    
+    def close_(self):
+        # print('MASTER_BOOK (up to last 50 items): \n', tabulate(self.master_book.loc[-50:, :], headers='keys', tablefmt='psql'))
+        print(self.master_book)
+        self.write_master_book_to_Excel(self.master_book)
+        self.trendtrading_mainlogic()
+        print(self.trtrade_list)
 
-    def check_balance(self):
-        # account number to be read from Kiwoom class directly hard coded
-        account_number = self.kiwoom.get_login_info("ACCNO")
-        account_number = account_number.split(';')[0]
+    def run_(self):
+        # buy_list to be generated either from master_book analysis (reinv) or from outside (new purchase)
+        self.buy_list = pd.DataFrame(columns = ['code', 'amount', 'note'])
+        self.buy_list.loc[len(self.buy_list)] = ['005930', 10, 'yet']
+        self.buy_list.loc[len(self.buy_list)] = ['017670', 10, 'yet']
+        self.buy_list.loc[len(self.buy_list)] = ['090430', 10, 'yet']
 
-        self.kiwoom.set_input_value("계좌번호", account_number)
-        self.kiwoom.comm_rq_data("opw00018_req", "opw00018", 0, "2000")
-
-        while self.kiwoom.remained_data:
-            self.kiwoom.set_input_value("계좌번호", account_number)
-            self.kiwoom.comm_rq_data("opw00018_req", "opw00018", 2, "2000")
-
-        # cash balance
-        self.kiwoom.set_input_value("계좌번호", account_number)
-        self.kiwoom.comm_rq_data("opw00001_req", "opw00001", 0, "2000")
-
-        # balance
-        # cash = self.kiwoom.d2_deposit
-        # for i in range(1, 6): # other balance data
-            # self.kiwoom.opw00018_output['single'][i - 1]
-
-        # purchased stock list
-        # self.kiwoom.opw00018_output['multi']
-
-        # for j in range(item_count):
-            # row = self.kiwoom.opw00018_output['multi'][j]
-            # for i in range(len(row)):
-                # row[i]
-
-    def load_master_book(self):
-        try: 
-            self.master_book = pd.read_excel(MASTER_BOOK_FILE, index_col=None, converters={'code': str})
-        except Exception as e:
-            print(e)
-            self.master_book = pd.DataFrame()
+        # sell_list to be generated only from master_book analysis
+        self.sell_list = pd.DataFrame(columns = ['code', 'amount', 'note'])
+        self.sell_list.loc[len(self.sell_list)] = ['005930', 5, 'yet']
+        self.sell_list.loc[len(self.sell_list)] = ['017670', 5, 'yet']
+        self.sell_list.loc[len(self.sell_list)] = ['090430', 5, 'yet']
         
+        # self.trade_stocks()
+        # master_book test code
+        for i in self.buy_list.index: 
+            tr_time = time.ctime()
+            self._write_transaction_to_master_book(self.buy_list['code'][i], 'testname'+str(i), 'buy', random.randint(1000,2000), random.randint(20,30), tr_time)
+
+        for i in self.sell_list.index: 
+            tr_time = time.ctime()
+            self._write_transaction_to_master_book(self.sell_list['code'][i], 'testname'+str(i), 'sell', random.randint(100,200), random.randint(10,20), tr_time)
 
     def trade_stocks(self):
-        
-        account = self.account_number
         buy_order = 1  
         sell_order = 2
+            
+        for i in self.buy_list.index:
+            if self.buy_list["note"][i] == 'yet' or self.buy_list["note"][i] == 'failed':
+                price = 0 # market 
+                hoga = '03' # market 
+                res = self.km.send_order("send_order_req", "0101", ACCOUNT_NO, buy_order, self.buy_list["code"][i], self.buy_list["amount"][i], price, hoga,"")
+    
+                if res[0] == 0 and res[1] != "":
+                    self.buy_list.at[i, "note"] = 'ordered'
+                    a = self.km.chejan_finish_data
+                    self.km.chejan_finish_data = []
+                    self._write_transaction_to_master_book(a[0], a[1], a[2], a[3], a[4], a[5])
+                else:
+                    print("Errer in order processing")
+                    self.buy_list.at[i, "note"] = 'failed'
+
+        for i in self.sell_list.index: 
+            if self.sell_list["note"][i] == 'yet' or self.sell_list["note"][i] == 'failed':
+                price = 0 # market 
+                hoga == '03' # market
+                res = self.km.send_order("send_order_req", "0101", ACCOUNT_NO, sell_order, self.sell_list["code"][i], self.sell_list["amount"][i], price, hoga,"")
+    
+                if res[0] == 0 and res[1] != "":
+                    self.sell_list.at[i, "note"] = 'ordered'
+                    a = self.km.chejan_finish_data
+                    self.km.chejan_finish_data = []
+                    self._write_transaction_to_master_book(a[0], a[1], a[2], a[3], a[4], a[5])
+                else:
+                    print("Errer in order processing")
+                    self.sell_list.at[i, "note"] = 'failed'
+
+    def trendtrading_mainlogic(self):
+        # Trend trading logic
+        # define max reinvestment 
+        # [step 0] for active set copy, do the following
+        mb_active = self.master_book.loc[self.master_book['active']]
+        cash = self.master_book.at[len(self.master_book)-1, 'cash']
         
-        # buy_command to be implemented buy_list -> master_book
-        for i in buy_list.index: 
-            if buy_list["Tr"][i] == 'yet' or buy_list["Tr"][i] == 'failed':
-                hoga = HOGA_LOOKUP[buy_list["Order_type"][i]]
-                if hoga == "00": 
-                    price = buy_list["Price"][i]
-                elif hoga == "03":
-                    price = 0 
-                res = self.kiwoom.send_order("send_order_req", "0101", account, buy_order, buy_list["Code"][i], int(buy_list["Amount"][i]), price, hoga,"")
+        # [step 1] update cur_price, cur_value, return_rate
+        for i in mb_active.index:
+            updated_price = self.km.get_price(mb_active.at[i, 'code'])
+            updated_value = int(updated_price*mb_active.at[i, 'no_shares']*self.tax_fee_adjustment('sell'))
+            updated_rr = updated_value/mb_active.at[i, 'total_invested']
+            mb_active.at[i, 'cur_price'] = updated_price
+            mb_active.at[i, 'cur_value'] = updated_value
+            mb_active.at[i, 'return_rate'] = updated_rr
+            
+        # [step 2] for decision_made == LLB_suspend, check if rr is back up to LB
+                # then decision_made = LLB_release, update decision_time
+                # otherwise, leave it as is
+            if mb_active.at[i, 'decision_made'] == "LLB_suspend": 
+                if updated_rr >= mb_active.at[i, 'LB']:
+                    mb_active.at[i, 'decision_made'] = "LLB_release"
+                    mb_active.at[i, 'decision_datetime'] = time.ctime()
+                else: 
+                    self.master_book.loc[i,:] = mb_active.loc[i,:]
+        # [step 3] for decision_made != LLB_suspend: compare rr with LLB, LB, UB
+            if mb_active.at[i, 'decision_made'] != "LLB_suspend":
 
-                if res[0] == 0 and res[1] != "":
-                    self.label_8.setText("Order sent: " + str(res[1]))
-                    buy_list.at[i, "Tr"] = 'ordered'
+                # if hits LLB, suspend trading until it reaches LB: decision_made = LLB_suspend, update decision_time
+                if updated_rr <= mb_active.at[i, 'LLB']:
+                    mb_active.at[i, 'decision_made'] = "LLB_suspend"
+                    mb_active.at[i, 'decision_datetime'] = time.ctime()
+                    self.master_book.loc[i,:] = mb_active.loc[i,:]
+
+                # if in between LLB and LB, sell (at loss): add this item to the trtrade_list (sell), code and quantity, DO NOT CHANGE MASTER BOOK 
                 else:
-                    self.label_8.setText("Errer in order processing")
-                    buy_list.at[i, "Tr"] = 'failed'
+                    if updated_rr <= mb_active.at[i, 'LB']:
+                        self.trtrade_list.loc[len(self.trtrade_list)] = [self.master_book.at[i, 'code'], self.master_book.at[i, 'no_shares'], 'sell', 'yet']
+                        cash = cash + updated_value
+                # if in between LB and UB: hold 
+                    elif updated_rr < mb_active.at[i, 'UB']:
+                        self.master_book.loc[i,:] = mb_active.loc[i,:]
+                # if hits UB: 
+                    else:
+                    # elif no_repurchase = MAX_ELEVATION: add this item to the trade_list (sell), DO NOT CHANGE MASTER BOOK
+                        nr = mb_active.at[i, 'no_reinvested'] 
+                        if nr == MAX_ELEVATION:
+                            self.trtrade_list.loc[len(self.trtrade_list)] = [self.master_book.at[i, 'code'], self.master_book.at[i, 'no_shares'], 'sell', 'yet']
+                            cash = cash + updated_value
+                        else: 
+                        # check cash, 
+                            # if cash > MIN_CASH_FOR_PURCHASE and no_repurchase < MAX_REINVESTMENT: add this item to trade_list (buy), DO NOT CHANGE MASTER BOOK
+                            if cash > MIN_CASH_FOR_PURCHASE and nr < MAX_REINVESTMENT:
+                                self.trtrade_list.loc[len(self.trtrade_list)] = [self.master_book.at[i, 'code'], self.master_book.at[i, 'no_shares'], 'buy', 'yet']
+                                cash = cash - TICKET_SIZE
+                            # else elevate bounds 1 steps, and update no_repurchase, decision_made = "bounds_elevated" and decision_time 
+                            else: 
+                                mb_active.at[i, 'no_reinvested'] = nr + 1
+                                [LLB, LB, UB] = self.bounds(nr+1)
+                                mb_active.at[i, 'LLB'] = LLB
+                                mb_active.at[i, 'LB'] = LB
+                                mb_active.at[i, 'UB'] = UB
+                                mb_active.at[i, 'decision_made'] = 'bounds_elevated'
+                                mb_active.at[i, 'decision_datetime'] = time.ctime()
+                                self.master_book.loc[i,:] = mb_active.loc[i,:]
+        print(mb_active)
 
-        # may need to save master book and save it to file 
+    def master_book_integrity_checker(self): 
+        pass 
+    
+    def master_book_initiator(self, initial_cash_amount, replace = False): 
+        if os.path.exists(MASTER_BOOK_FILE) and not replace: 
+            print("USING EXISTING MASTER BOOK - master book file already exists")
 
-        # sell_command to be implemented sell_list -> master_book
-        for i in sell_list.index: 
-            if sell_list["Tr"][i] == 'yet' or sell_list["Tr"][i] == 'failed':
-                hoga = HOGA_LOOKUP[sell_list["Order_type"][i]]
-                if hoga == "00": 
-                    price = sell_list["Price"][i]
-                elif hoga == "03":
-                    price = 0 
-                res = self.kiwoom.send_order("send_order_req", "0101", account, sell_order, sell_list["Code"][i], int(sell_list["Amount"][i]), price, hoga,"")
-                if res[0] == 0 and res[1] != "":
-                    self.label_8.setText("Order sent: "+str(res[1]))
-                    sell_list.at[i, "Tr"] = 'ordered'
-                else:
-                    self.label_8.setText("Errer in order processing")
-                    sell_list.at[i, "Tr"] = 'failed'
+        else:
+            if os.path.exists(MASTER_BOOK_FILE) and replace: 
+                t = time.strftime("_%Y%m%d_%H%M%S")
+                n = MASTER_BOOK_FILE[:-5]
+                os.rename(WORKING_DIR_PATH+MASTER_BOOK_FILE, WORKING_DIR_PATH+n+t+'.xlsx')
+            
+            mb = xlsxwriter.Workbook(MASTER_BOOK_FILE)
+            mbws = mb.add_worksheet() 
+            mbws.write('A1', 'code') 
+            mbws.write('B1', 'name') 
+            mbws.write('C1', 'cur_price') # price at the time of the decision
+            mbws.write('D1', 'no_shares') 
+            mbws.write('E1', 'no_reinvested') 
+            mbws.write('F1', 'LLB') 
+            mbws.write('G1', 'LB') 
+            mbws.write('H1', 'UB') 
+            mbws.write('I1', 'total_invested')  # invested amount after entry fee
+            mbws.write('J1', 'cur_value') # value at the time of the decision (after tax and exit fee)
+            mbws.write('K1', 'return_rate')
+            mbws.write('L1', 'return_realized')  # return resulted due to the decision in the current line
+            mbws.write('M1', 'initial_inv_datetime') 
+            mbws.write('N1', 'decision_made') # decision that resulted in the current line
+            mbws.write('O1', 'decision_datetime') 
+            mbws.write('P1', 'active')  # True: for currently holding stocks, False: for record
+            mbws.write('Q1', 'cash') # d+2 cash after all tax and fee
+            
+            mbws.write('A2', '000000')
+            mbws.write('B2', 'list_initiated')  
+            mbws.write('C2', 0)  
+            mbws.write('D2', 0)  
+            mbws.write('E2', 0)  
+            mbws.write('F2', 0)  
+            mbws.write('G2', 0)  
+            mbws.write('H2', 0)  
+            mbws.write('I2', 0)  
+            mbws.write('J2', 0)  
+            mbws.write('K2', 0) 
+            mbws.write('L2', 0)  
+            mbws.write('M2', time.ctime()) 
+            mbws.write('N2', 'Initialzied')  
+            mbws.write('O2', time.ctime()) 
+            mbws.write('P2', False)  
+            mbws.write('Q2', initial_cash_amount)  
+            mb.close()
 
-        # may need to save master book and save it to file 
-                
+        self.master_book = self.read_master_book_from_Excel()
 
-###########################################################################
-##### ALGORITHMS
-###########################################################################
+    def read_master_book_from_Excel(self):
+        mb_converters = {'code': str, 
+                            'name': str, 
+                            'cur_price': int, 
+                            'no_shares': int, 
+                            'no_reinvested': int, 
+                            'LLB': float, 
+                            'LB': float, 
+                            'UB': float, 
+                            'total_invested': int, 
+                            'cur_value': int, 
+                            'return_rate': float, 
+                            'return_realized': int, 
+                            'initial_inv_datetime': str, 
+                            'decision_made': str, 
+                            'decision_datetime': str, 
+                            'active': bool, 
+                            'cash': int }
 
-    def autotrade_list_gen(self): 
-        sell_list = self.algo_sell_by_return_range(1.5, -1) # args are in percentage points
+        master_book = pd.read_excel(MASTER_BOOK_FILE, index_col = None, converters=mb_converters)
+        master_book['initial_inv_datetime'] = pd.to_datetime(master_book['initial_inv_datetime'])
+        master_book['decision_datetime'] = pd.to_datetime(master_book['decision_datetime'])
 
-    def algo_sell_by_return_range(self, upperlimit, lowerlimit): 
-        my_stocks = self.kiwoom.get_my_stock_list()
-        for exception_code in exception_list:
-            my_stocks = my_stocks[my_stocks.index != exception_code]
-        profit_sell_list = my_stocks[my_stocks['earning_rate'] > upperlimit] 
-        loss_sell_list = my_stocks[my_stocks['earning_rate'] < lowerlimit] 
-        print('Profit Sell List (up to 50 items): \n', tabulate(profit_sell_list[:50], headers='keys', tablefmt='psql'))
-        print('Loss Sell List (up to 50 items): \n', tabulate(loss_sell_list[:50], headers='keys', tablefmt='psql'))
-        return profit_sell_list.append(loss_sell_list)
+        return master_book
+    
+    def write_master_book_to_Excel(self, master_book):
+        master_book.to_excel(MASTER_BOOK_FILE, index = False)
 
+    def _write_transaction_to_master_book(self, code, name, buy_sell, price, quantity, tr_time):
+        # this function is to be used only after SendOrder success
+        mb_active = self.master_book.loc[self.master_book["active"]]
+        active_line = mb_active[mb_active['code'] == code]
+
+        if buy_sell == 'buy': 
+            if len(active_line) == 0: 
+                new_line = pd.DataFrame(columns = self.master_book.columns)
+                new_line.at[0, 'code'] = code
+                new_line.at[0, 'name'] = name
+                new_line.at[0, 'cur_price'] = price
+                new_line.at[0, 'no_shares'] = quantity
+                new_line.at[0, 'no_reinvested'] = nr = 0 
+                [LLB, LB, UB] = self.bounds(nr)
+                new_line.at[0, 'LLB'] = LLB
+                new_line.at[0, 'LB'] = LB
+                new_line.at[0, 'UB'] = UB
+                new_line.at[0, 'total_invested'] = v1 = int(price*quantity*self.tax_fee_adjustment('buy'))
+                new_line.at[0, 'cur_value'] = v2 = int(price*quantity*self.tax_fee_adjustment('sell'))
+                new_line.at[0, 'return_rate'] = (v2-v1)/v1 
+                new_line.at[0, 'return_realized'] = 0
+                new_line.at[0, 'initial_inv_datetime'] = tr_time
+                new_line.at[0, 'decision_made'] = 'new_entry'
+                new_line.at[0, 'decision_datetime'] = tr_time
+                new_line.at[0, 'active'] = True
+                new_line.at[0, 'cash'] = ch = self.master_book.at[len(self.master_book)-1, 'cash'] - v1
+                if ch < 0: 
+                    raise Exception("Negative Cash Balance") 
+
+            elif len(active_line) == 1:
+                idx = list(active_line.index)[0]
+                self.master_book.at[idx, 'active'] = False
+                new_line = active_line
+                # new_line.at[idx, 'code'] = code # should be the same
+                # new_line.at[idx, 'name'] = name 
+                new_line.at[idx, 'cur_price'] = price # price update
+                new_line.at[idx, 'no_shares'] = ns = new_line.at[idx, 'no_shares'] + quantity # repurchase
+                new_line.at[idx, 'no_reinvested'] = nr = new_line.at[idx, 'no_reinvested'] + 1
+                if nr > MAX_ELEVATION:  
+                    raise Exception("Do not attmpt to purchase over MAX_ELEVATION")
+                [LLB, LB, UB] = self.bounds(nr)
+                new_line.at[idx, 'LLB'] = LLB
+                new_line.at[idx, 'LB'] = LB
+                new_line.at[idx, 'UB'] = UB
+                new_line.at[idx, 'total_invested'] = v1 = new_line.at[idx, 'total_invested'] + int(price*quantity*self.tax_fee_adjustment('buy'))
+                new_line.at[idx, 'cur_value'] = v2 = int((price*ns)*self.tax_fee_adjustment('sell'))
+                new_line.at[idx, 'return_rate'] = (v2-v1)/v1 
+                new_line.at[idx, 'return_realized'] = 0
+                # new_line.at[0, 'initial_inv_datetime'] = tr_time # does not change
+                new_line.at[idx, 'decision_made'] = 'reinvested'
+                new_line.at[idx, 'decision_datetime'] = tr_time # update time
+                new_line.at[idx, 'active'] = True
+                new_line.at[idx, 'cash'] = ch = self.master_book.at[len(self.master_book)-1, 'cash'] - v1
+                if ch < 0: 
+                    raise Exception("Negative Cash Balance") 
+
+            else: 
+                raise Exception("ERROR in Master_Book Integrity - buy")
+
+        else: # buy_sell == 'sell':
+            if len(active_line) == 1: 
+                idx = list(active_line.index)[0]
+                self.master_book.at[idx, 'active'] = False
+                new_line = active_line
+                # new_line.at[idx, 'code'] = code
+                # new_line.at[idx, 'name'] = name
+                new_line.at[idx, 'cur_price'] = price # price update
+                original_quantity = new_line.at[idx, 'no_shares']
+                new_line.at[idx, 'no_shares'] = remained_quantity = original_quantity - quantity
+                # new_line.at[idx, 'no_reinvested'] = nr = 0 
+                # new_line.at[idx, 'LLB'] = 0  #### function of nr
+                # new_line.at[idx, 'LB'] = 0  #### 
+                # new_line.at[idx, 'UB'] = 0  #### 
+                avg_price = new_line.at[idx, 'total_invested'] / original_quantity
+                new_line.at[idx, 'total_invested'] = v1 = avg_price*remained_quantity 
+                new_line.at[idx, 'cur_value'] = v2 = int(price*remained_quantity*self.tax_fee_adjustment('sell'))
+                if v1 != 0:  # remained_quantity is not zero
+                    new_line.at[idx, 'return_rate'] = (v2-v1)/v1 
+                else: 
+                    new_line.at[idx, 'return_rate'] = 0
+                v3 = (price*quantity*self.tax_fee_adjustment('sell'))
+                new_line.at[idx, 'return_realized'] = v3 - avg_price*quantity
+                # new_line.at[idx, 'initial_inv_datetime'] = tr_time # does not change
+                if remained_quantity == 0: 
+                    new_line.at[idx, 'decision_made'] = 'all_sold' 
+                    new_line.at[idx, 'active'] = False
+                else: 
+                    new_line.at[idx, 'decision_made'] = 'partial_sold'
+                    new_line.at[idx, 'active'] = True
+                new_line.at[idx, 'decision_datetime'] = tr_time
+                new_line.at[idx, 'cash'] = ch = self.master_book.at[len(self.master_book)-1, 'cash'] + v3 
+                if remained_quantity < 0: 
+                    raise Exception("Netagive remained quantity")
+            else: 
+                raise Exception("ERROR in Master_Book Integrity - sell")
+        
+        new_line.index = [len(self.master_book)]
+        self.master_book = self.master_book.append(new_line)
+    
+    def bounds_prep(self):
+        self.bounds_table = pd.read_excel(BOUNDS_FILE, index_col=None).iloc[29:32, 1:13]
+        self.bounds_table.columns = ['var', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+
+    def bounds(self, nr): # nr = number of repurchase
+        UB = self.bounds_table.iat[0, nr+1]
+        LB = self.bounds_table.iat[1, nr+1]
+        LLB = self.bounds_table.iat[2, nr+1]
+        return [LLB, LB, UB]
+
+    def tax_fee_adjustment(self, buy_sell):
+        if buy_sell == 'buy': 
+            return 1+FEE_RATE # when buying, you may pay additional cash for fee
+        else: # buy_sell == 'sell':
+            return 1-(FEE_RATE + TAX_RATE) # when selling, your cash is dedcuted by tax and fee
+
+        
+if __name__ == "__main__": 
+    app = QApplication(sys.argv)
+    trtrader = TrTrader()
+    trtrader.run_() 
+    trtrader.close_()

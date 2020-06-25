@@ -68,7 +68,7 @@ class Kiwoom(QAxWidget):
         return ret
 
     def _receive_chejan_data(self, gubun, item_cnt, fid_list):
-        pv = self.get_chejan_data(911) 
+        pv = self.get_chejan_data(911)
         if pv != "": # 911: purchased volume, 302: name, 9001: stockcode, 905: buy or sell, 900: order quantity, 910: transaction price
             oq = self.get_chejan_data(900) 
             stock_name = self.get_chejan_data(302).strip() 
@@ -81,7 +81,7 @@ class Kiwoom(QAxWidget):
                   + bs + ", " + pv + "/" + oq + ", at price: " + format(tr_price, ','))
             if pv == oq: 
                 tr_time = time.ctime() # for excel file recognition
-                self.chejan_finish_data = [stock_code, stock_name, buy_sell, tr_price, pv, tr_time]
+                self.chejan_finish_data = [stock_code, stock_name, buy_sell, tr_price, int(pv), tr_time]
                 try:
                     self.chejan_event_loop.exit()
                 except Exception as e: 
@@ -270,6 +270,11 @@ class Kiwoom(QAxWidget):
                        index=self.ohlcv['date'])
         # implement getting-remained-data for longer period. 
         return df
+    
+    def get_price(self, code): 
+        self.set_input_value('종목코드', code)
+        self.comm_rq_data('opt10001_req', 'opt10001', 0, '2000')
+        return self.cur_price
 
     def get_account_stock_list(self, ACCOUNT_NO):
         self.set_input_value("계좌번호", ACCOUNT_NO)
@@ -333,12 +338,6 @@ while k.remained_data:
     k.set_input_value('계좌번호', ACCOUNT_NO)
     k.comm_rq_data('opw00018_req', 'opw00018', 2, '2000')
     a = pd.DataFrame(k.opw00018_stocklist)
-# ---------------------------------
-
-# ---------------------------------
-k.set_input_value('종목코드', '005930')
-k.comm_rq_data('opt10001_req', 'opt10001', 0, '2000')
-print(k.cur_price)
 # ---------------------------------
 
 # ---------------------------------
