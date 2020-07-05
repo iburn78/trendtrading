@@ -18,6 +18,7 @@ class Kiwoom(QAxWidget):
         self._set_signal_slots()
         self.connect_status = False
         self.chejan_finish_data = []
+        self._chejan_avg_price_data = []
         self.comm_connect()
 
     def _set_signal_slots(self):
@@ -77,11 +78,21 @@ class Kiwoom(QAxWidget):
             buy_sell = {'+매수': 'buy', '-매도': 'sell'}[bs]
             tr_price = int(self.get_chejan_data(910))
             tr_time = time.strftime("%Y %m%d %H:%M:%S")
+            self._chejan_avg_price_data.append([int(pv), tr_price])
             self.trade_log_write(" - " + tr_time + " " + stock_name + "("+ stock_code + ") "
                   + bs + ", " + pv + "/" + oq + ", at price: " + format(tr_price, ','))
             if pv == oq: 
                 tr_time = time.ctime() # for excel file recognition
-                self.chejan_finish_data = [stock_code, stock_name, buy_sell, tr_price, int(pv), tr_time]
+                if len(self._chejan_avg_price_data) == 1:
+                    avg_price = tr_price
+                else: 
+                    p_sum = self._chejan_avg_price_data[0][0]*self._chejan_avg_price_data[0][1]
+                    for i in range(1, len(self._chejan_avg_price_data)):
+                        p_sum = p_sum + (self._chejan_avg_price_data[i][0] - self._chejan_avg_price_data[i-1][0])*self._chejan_avg_price_data[i][1]
+                    avg_price = int(p_sum/int(oq))
+                self.chejan_finish_data = [stock_code, stock_name, buy_sell, avg_price, int(pv), tr_time]
+                self._chejan_avg_price_data = []
+                self.trade_log_write("   > average price: " + format(avg_price, ','))
                 try:
                     self.chejan_event_loop.exit()
                 except Exception as e: 
@@ -178,28 +189,27 @@ class Kiwoom(QAxWidget):
     def _opt10081_ex(self, rqname, trcode):
         multi_data = self._get_comm_data_ex(trcode, "주식일봉차트조회")
         multi_data = [r[1:8] for r in multi_data]
-        multi_data = pd.DataFrame(multi_data, columns = ['cur_price', 'vol', 'vol_krw', 'date', 'start', 'high', 'low'])
-        multi_data[['cur_price', 'vol', 'vol_krw', 'start', 'high', 'low']] = multi_data[['cur_price', 'vol', 'vol_krw', 'start', 'high', 'low']].astype('int')
+        multi_data = pd.DataFrame(multi_data, columns = ['cprice', 'vol', 'vol_krw', 'date', 'start', 'high', 'low'])
+        multi_data[['cprice', 'vol', 'vol_krw', 'start', 'high', 'low']] = multi_data[['cprice', 'vol', 'vol_krw', 'start', 'high', 'low']].astype('int')
         multi_data['date'] = pd.to_datetime(multi_data['date'])
         self.opt10081_multi_data_set = multi_data
         
     def _opw00001(self, rqname, trcode):
         d2_deposit = self._comm_get_data(trcode, "", rqname, 0, "d+2추정예수금")
-        self.d2_deposit = Kiwoom.change_format(d2_deposit)
+        self.d2_deposit = d2_deposit
+        # self.d2_deposit = Kiwoom.change_format(d2_deposit)
 
     def _opw00018(self, rqname, trcode):
         # single data
         total_purchase_price = self._comm_get_data(trcode, "", rqname, 0, "총매입금액")
         total_eval_price = self._comm_get_data(trcode, "", rqname, 0, "총평가금액")
-        total_eval_profit_loss_price = self._comm_get_data(trcode, "", rqname, 0, "총평가손익금액")
-        total_earning_rate = self._comm_get_data(trcode, "", rqname, 0, "총수익률(%)")
-        total_earning_rate = round(float(total_earning_rate), 3) 
-        total_earning_rate = str(total_earning_rate)
+        total_ret = self._comm_get_data(trcode, "", rqname, 0, "총평가손익금액")
+        total_retrate = self._comm_get_data(trcode, "", rqname, 0, "총수익률(%)")
         estimated_deposit = self._comm_get_data(trcode, "", rqname, 0, "추정예탁자산")
         self.opw00018_formatted_data['single'].append(Kiwoom.change_format(total_purchase_price))
         self.opw00018_formatted_data['single'].append(Kiwoom.change_format(total_eval_price))
-        self.opw00018_formatted_data['single'].append(Kiwoom.change_format(total_eval_profit_loss_price))
-        self.opw00018_formatted_data['single'].append(Kiwoom.change_format(total_earning_rate))
+        self.opw00018_formatted_data['single'].append(Kiwoom.change_format(total_ret))
+        self.opw00018_formatted_data['single'].append(Kiwoom.change_format(total_retrate))
         self.opw00018_formatted_data['single'].append(Kiwoom.change_format(estimated_deposit))
 
         # multi data
@@ -210,13 +220,13 @@ class Kiwoom(QAxWidget):
             quantity = self._comm_get_data(trcode, "", rqname, i, "보유수량")
             purchase_price = self._comm_get_data(trcode, "", rqname, i, "매입가")
             current_price = self._comm_get_data(trcode, "", rqname, i, "현재가")
-            invested_amount = self._comm_get_data(trcode, "", rqname, i, "매입금액")
-            current_total = self._comm_get_data(trcode, "", rqname, i, "평가금액")
-            eval_profit_loss_price = self._comm_get_data(trcode, "", rqname, i, "평가손익")
-            earning_rate = self._comm_get_data(trcode, "", rqname, i, "수익률(%)")
+            invested_amount = self._comm_get_data(trcode, "", rqname, i, "매입금액") # before any tax/fee
+            current_total = self._comm_get_data(trcode, "", rqname, i, "평가금액") # before any tax/fee
+            ret = self._comm_get_data(trcode, "", rqname, i, "평가손익") # after all tax/fee
+            retrate = self._comm_get_data(trcode, "", rqname, i, "수익률(%)") # ret over invested_amount (so this is not exact return rate, exact return rate = ret over (inveted_amount + buy_fee))
             
             # for data handling
-            self.opw00018_stocklist.append([name, code, int(quantity), int(purchase_price), int(current_price), int(invested_amount), int(current_total), float(eval_profit_loss_price), float(earning_rate)])
+            self.opw00018_stocklist.append([name, code, int(quantity), int(purchase_price), int(current_price), int(invested_amount), int(current_total), int(ret), float(retrate)])
 
             # for printing
             quantity = Kiwoom.change_format(quantity)
@@ -224,18 +234,21 @@ class Kiwoom(QAxWidget):
             current_price = Kiwoom.change_format(current_price)
             invested_amount = Kiwoom.change_format(invested_amount)
             current_total = Kiwoom.change_format(current_total)
-            eval_profit_loss_price = Kiwoom.change_format(eval_profit_loss_price)
-            earning_rate = Kiwoom.change_format_rate(earning_rate)
-            self.opw00018_formatted_data['multi'].append([name, code, quantity, purchase_price, current_price, invested_amount, current_total, eval_profit_loss_price, earning_rate])
+            ret = Kiwoom.change_format(ret)
+            retrate = Kiwoom.change_format_rate(retrate)
+            self.opw00018_formatted_data['multi'].append([name, code, quantity, purchase_price, current_price, invested_amount, current_total, ret, retrate])
+
+        if self.remained_data: 
+            raise Exception("REMAINED STOCK EXISTS - IN OPW00018")
     
     def _opt10001(self, rqname, trcode):
-        cur_price = self._comm_get_data(trcode, "", rqname, 0, "현재가")
+        cprice = self._comm_get_data(trcode, "", rqname, 0, "현재가")
         try: 
-            cur_price = abs(int(cur_price))
+            cprice = abs(int(cprice))
         except Exception as e:
-            # print(e) # error when cur_price = ""
-            cur_price = 0
-        self.cur_price = cur_price
+            # print(e) # error when cprice = ""
+            cprice = 0
+        self.cprice = cprice
 
     @staticmethod
     def change_format(data): 
@@ -274,7 +287,7 @@ class Kiwoom(QAxWidget):
     def get_price(self, code): 
         self.set_input_value('종목코드', code)
         self.comm_rq_data('opt10001_req', 'opt10001', 0, '2000')
-        return self.cur_price
+        return self.cprice
 
     def get_account_stock_list(self, ACCOUNT_NO):
         self.set_input_value("계좌번호", ACCOUNT_NO)
@@ -284,14 +297,19 @@ class Kiwoom(QAxWidget):
             self.set_input_value("계좌번호", ACCOUNT_NO)
             self.comm_rq_data("opw00018_req", "opw00018", 2, "2000")
 
-        stock_list = pd.DataFrame(self.opw00018_stocklist, columns=['name', 'code', 'quantity', 'purchase_price', 
-            'current_price', 'invested_amount', 'current_total', 'eval_profit_loss_price', 'earning_rate'])
+        stock_list = pd.DataFrame(self.opw00018_stocklist, columns=['name', 'code', 'nshares', 'pur_price', 
+            'cprice', 'invtotal', 'cvalue', 'ret', 'retrate'])
 
         for i in stock_list.index:
             stock_list.at[i, 'code'] = stock_list['code'][i][1:]   # taking off "A" in front of returned code
 
-        print('My Stock List (up to 50 items): \n', tabulate(stock_list[:50], headers='keys', tablefmt='psql'))
-        return stock_list.set_index('code')
+        # print('My Stock List (up to 75 items): \n', tabulate(stock_list[:75], headers='keys', tablefmt='psql'))
+        return stock_list
+
+    def get_cash(self, ACCOUNT_NO):
+        self.set_input_value('계좌번호', ACCOUNT_NO)
+        self.comm_rq_data('opw00001_req', 'opw00001', 0, '2000')
+        return self.d2_deposit
 
 
 
