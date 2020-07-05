@@ -21,10 +21,10 @@ MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is mod
 # TAX_RATE = 0.003          # real TAX_RATE (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products)
 FEE_RATE = 0.0035           # for simulation
 TAX_RATE = 0.0025           # for simulation (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
-CREATE_NEW_MASTER_BOOK = True
+CREATE_NEW_MASTER_BOOK = True # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
 # dec_made_DICTIONARY: new_ent (new_ent), reinv (reinvested), a_sold (a_sold), p_sold (partial_sold), SUSPEND (LLB_suspend), released (suspend_release), bd_elev (bound_elevated), loaded, EXCEPT (loading_exception)
 
-TRENDTRADE_EXCEPT_LIST = []  # CODES IN THIS LIST ARE NOT LOADED INTO MASTER_BOOK
+TRENDTRADE_EXCEPT_LIST = ['105560', '078930']  # CODES IN THIS LIST ARE NOT LOADED INTO MASTER_BOOK
 # Note: When adding to or subtract from TRENDTRADE_EXCEPT_LIST, CREATE_NEW_MASTER_BOOK should be set to True. Otherwise, integrity checker will fail
 
 
@@ -52,7 +52,7 @@ class TrTrader():
         # check exception list (stocks in exception list as well as stocks in master_book: exclude any existing stocks)
         # check cash
         if os.path.exists(EXTERNAL_LIST_FILE):
-            el = self.read_external_buysell_list()
+            el = TrTrader.read_external_buysell_list()
             bk = self.km.get_account_stock_list(ACCOUNT_NO)
 
             for i in el.index: 
@@ -92,7 +92,7 @@ class TrTrader():
                 self.trtrade_list = self.trtrade_list.append(el)
             
         else: 
-            # print('No external buy_sell list')
+            print('No external buy_sell list')
             pass
 
 
@@ -316,7 +316,8 @@ class TrTrader():
 
         return master_book
     
-    def read_external_buysell_list(self):
+    @staticmethod
+    def read_external_buysell_list():
         el_converters = {'code': str, 
                          'amount': int, 
                          'buy_sell': str, 
