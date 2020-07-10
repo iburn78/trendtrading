@@ -9,3 +9,254 @@
  - Total invested(k): 181,156 | Current Value(k): 190,995
  - Realized Return Total(k): 0 | Exception List: ['105560', '078930']
 -----------------------------------------
+[Trend Trade Summary - 20200706 09:47:13]
+ - Kiwoom Cash(k): 302,464 | TrTrading Cash(k): 118,843
+ - Return(%): 6.08 | #items: 8
+ - Total invested(k): 181,156 | Current Value(k): 192,167
+ - Realized Return Total(k): 0 | Exception List: ['105560', '078930']
+[SendOrder] 2020 0706 09:47:44 0052095 send_order_req 0101 8135010411 1 006800 1044 0 03 
+ - 2020 0706 09:47:44 미래에셋대우(006800) +매수, 334/1044, at price: 6,760
+ - 2020 0706 09:47:47 미래에셋대우(006800) +매수, 484/1044, at price: 6,760
+ - 2020 0706 09:47:52 미래에셋대우(006800) +매수, 486/1044, at price: 6,760
+ - 2020 0706 09:48:02 미래에셋대우(006800) +매수, 787/1044, at price: 6,760
+ - 2020 0706 09:48:18 미래에셋대우(006800) +매수, 788/1044, at price: 6,760
+ - 2020 0706 09:48:18 미래에셋대우(006800) +매수, 789/1044, at price: 6,760
+ - 2020 0706 09:48:30 미래에셋대우(006800) +매수, 794/1044, at price: 6,760
+ - 2020 0706 09:48:32 미래에셋대우(006800) +매수, 1044/1044, at price: 6,760
+   > average price: 6,760
+--- SendOrder Fail: (0) 2020 0706 09:48:32  send_order_req 0101 8135010411 1 096770 101044 0 03 
+[SendOrder] 2020 0706 09:48:32 0052581 send_order_req 0101 8135010411 2 005930 1331 0 03 
+ - 2020 0706 09:48:34 삼성전자(005930) -매도, 80/1331, at price: 54,100
+ - 2020 0706 09:48:34 삼성전자(005930) -매도, 85/1331, at price: 54,106
+ - 2020 0706 09:48:34 삼성전자(005930) -매도, 185/1331, at price: 54,157
+ - 2020 0706 09:48:34 삼성전자(005930) -매도, 212/1331, at price: 54,162
+ - 2020 0706 09:48:34 삼성전자(005930) -매도, 242/1331, at price: 54,167
+ - 2020 0706 09:48:35 삼성전자(005930) -매도, 273/1331, at price: 54,171
+ - 2020 0706 09:48:35 삼성전자(005930) -매도, 286/1331, at price: 54,167
+ - 2020 0706 09:48:35 삼성전자(005930) -매도, 307/1331, at price: 54,163
+ - 2020 0706 09:48:36 삼성전자(005930) -매도, 407/1331, at price: 54,172
+ - 2020 0706 09:48:37 삼성전자(005930) -매도, 773/1331, at price: 54,185
+ - 2020 0706 09:48:37 삼성전자(005930) -매도, 842/1331, at price: 54,186
+ - 2020 0706 09:48:38 삼성전자(005930) -매도, 843/1331, at price: 54,186
+ - 2020 0706 09:48:38 삼성전자(005930) -매도, 943/1331, at price: 54,188
+ - 2020 0706 09:48:38 삼성전자(005930) -매도, 945/1331, at price: 54,188
+ - 2020 0706 09:48:38 삼성전자(005930) -매도, 948/1331, at price: 54,187
+ - 2020 0706 09:48:38 삼성전자(005930) -매도, 1001/1331, at price: 54,188
+ - 2020 0706 09:48:39 삼성전자(005930) -매도, 1022/1331, at price: 54,186
+ - 2020 0706 09:48:39 삼성전자(005930) -매도, 1053/1331, at price: 54,187
+ - 2020 0706 09:48:39 삼성전자(005930) -매도, 1083/1331, at price: 54,187
+ - 2020 0706 09:48:39 삼성전자(005930) -매도, 1283/1331, at price: 54,189
+ - 2020 0706 09:48:39 삼성전자(005930) -매도, 1298/1331, at price: 54,189
+ - 2020 0706 09:48:40 삼성전자(005930) -매도, 1331/1331, at price: 54,189
+   > average price: 54,176
+--- SendOrder Fail: (0) 2020 0706 09:48:40  send_order_req 0101 8135010411 2 019550 1554 0 03 
+[SendOrder] 2020 0706 09:48:40 0052677 send_order_req 0101 8135010411 2 122630 500 0 03 
+ - 2020 0706 09:48:42 KODEX 레버리지(122630) -매도, 100/500, at price: 12,730
+ - 2020 0706 09:48:43 KODEX 레버리지(122630) -매도, 120/500, at price: 12,730
+ - 2020 0706 09:48:44 KODEX 레버리지(122630) -매도, 140/500, at price: 12,729
+ - 2020 0706 09:48:44 KODEX 레버리지(122630) -매도, 440/500, at price: 12,726
+ - 2020 0706 09:48:45 KODEX 레버리지(122630) -매도, 442/500, at price: 12,726
+ - 2020 0706 09:48:45 KODEX 레버리지(122630) -매도, 457/500, at price: 12,726
+ - 2020 0706 09:48:45 KODEX 레버리지(122630) -매도, 458/500, at price: 12,727
+ - 2020 0706 09:48:46 KODEX 레버리지(122630) -매도, 500/500, at price: 12,727
+   > average price: 12,727
+[Trend Trade Summary - 20200706 11:39:10]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 187,475
+ - Return(%): 7.68 | #items: 8
+ - Total invested(k): 112,524 | Current Value(k): 121,161
+ - Realized Return Total(k): 0 | Exception List: ['105560', '078930']
+[Trend Trade Summary - 20200706 11:39:59]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 187,475
+ - Return(%): 7.66 | #items: 8
+ - Total invested(k): 112,524 | Current Value(k): 121,146
+ - Realized Return Total(k): 0 | Exception List: ['105560', '078930']
+[Trend Trade Summary - 20200706 12:31:59]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 6.81 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 127,354
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200706 16:15:26]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 6.70 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 127,222
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200706 17:42:20]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 6.70 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 127,222
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200706 17:43:43]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 6.70 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 127,222
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:18:06]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:27:10]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:27:40]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:29:29]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:31:43]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:38:22]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:43:24]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:44:05]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:44:35]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:45:06]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:46:21]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:48:59]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:52:08]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:52:44]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:53:25]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 18:55:41]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:00:56]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:01:20]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:01:34]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:07:14]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:08:46]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:09:47]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:10:37]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:11:04]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:18:21]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200707 19:22:06]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+VERSION CHECK FINISHED
+VERSION CHECK FINISHED
+ATTENTION REQUIRED ---
+VERSION CHECK FINISHED
+ATTENTION REQUIRED ---
+[Trend Trade Summary - 20200707 19:46:14]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+VERSION CHECK FINISHED
+VERSION CHECK FINISHED
+[Trend Trade Summary - 20200707 21:31:52]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+VERSION CHECK FINISHED
+VERSION CHECK FINISHED
+[Trend Trade Summary - 20200707 22:49:11]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+VERSION CHECK FINISHED
+[Trend Trade Summary - 20200707 22:50:35]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 5.39 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 125,668
+ - Realized Return Total(k): 0 | Exception List: []
+VERSION CHECK FINISHED
+VERSION CHECK FINISHED
+VERSION CHECK FINISHED
+VERSION CHECK FINISHED
+VERSION CHECK FINISHED
+[Trend Trade Summary - 20200710 18:22:08]
+ - Kiwoom Cash(k): 373,416 | TrTrading Cash(k): 180,762
+ - Return(%): 3.19 | #items: 9
+ - Total invested(k): 119,237 | Current Value(k): 123,036
+ - Realized Return Total(k): 0 | Exception List: []

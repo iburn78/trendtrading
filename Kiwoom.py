@@ -8,8 +8,6 @@ from tabulate import tabulate
 WORKING_DIR_PATH = 'C:/Users/user/Projects/trendtrading/'
 TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
 API_REQ_TIME_INTERVAL = 0.3 # min: 0.2
-# MARKET_START_TIME = QTime(9, 1, 0)
-# MARKET_FINISH_TIME = QTime(15, 19, 0)
 
 class Kiwoom(QAxWidget):
     def __init__(self):

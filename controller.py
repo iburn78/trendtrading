@@ -1,27 +1,42 @@
 from Kiwoom import *
 from trtrader import *
+from datetime import datetime, time as dtime
+import time 
+import schedule
+
+HOLIDAYS_2020 = ['20200930', '20201001', '20201002', '20201009', '20201225']
+HOLIDAYS = list(map(lambda x: datetime.strptime(x, '%Y%m%d').date(), HOLIDAYS_2020))
+
+VERSION_CHK_TIME = "08:00"
+TRTRADE_RUN_TIME = "09:10"
+TRTRADE_FIN_TIME = "15:20"
+TRTRADE_RUN_INTERVAL = 10 # second
+RUN_PENDING_INTERVAL = 10
+
+MKT_OPEN_TIME = dtime.fromisoformat(TRTRADE_RUN_TIME)
+MKT_CLOSE_TIME = dtime.fromisoformat(TRTRADE_FIN_TIME)
+VERSION_CHECK_MSG = 'VERSION CHECK FINISHED'
 
 class Controller():
     def __init__(self): 
-        app = QApplication(sys.argv)
-        self.trtrader = TrTrader()
-        trtrader.show()
-        app.exec_()
+        schedule.every().day.at(VERSION_CHK_TIME).do(self.run_)
+        schedule.every().day.at(TRTRADE_RUN_TIME).do(self.run_)
+        while 1: 
+            schedule.run_pending()
+            print('.', end='')
+            time.sleep(RUN_PENDING_INTERVAL)
 
-    def run(self):
-        try: 
-            while 1: 
-                # datetime.datetime.today().weekday() in range(0,5) and current_time > MARKET_START_TIME and current_time < MARKET_FINISH_TIME:
-                # if current time is in MKT_OPEN_TIME and MKT_CLOSE_TIME
-                # make the while statement running before MKT_OPEN_TIME, but close after MKT_CLOSE_TIME 
-                print('trtrader running - do not interrupt the system')
-                self.trtrader.run()
-                # put other actions e.g., visualization
-                print('the system entered waiting - you may exit by Ctrl-c')
-                time.sleep(RUN_WAIT_INTERVAL)
-        except Exception as e: 
-            print(e)
-        # add clean-up codes if any
+    def run_(self): 
+        print("\nController run: ", time.strftime("%Y/%m/%d %H:%M:%S"))
+        os.system("python daytask.py")
+        if datetime.now().time() < MKT_OPEN_TIME: 
+            with open(TRADE_LOG_FILE) as f: 
+                msg = f.read()
+                if msg[-23:-1] == VERSION_CHECK_MSG:
+                    print("Version check success ", time.strftime("%Y/%m/%d %H:%M:%S"))
+                else:
+                    sys.exit("Kiwoom API Version Update Fail")
+
 
     def master_book_visualize(self): 
         print(self.trtrader.master_book)
@@ -30,12 +45,20 @@ class Controller():
         # consider table or graph (using matplotlib)
         # (if needed) save it to file 
 
-    def result_summary(self):
+    def result_summary(self): # or performance management
         pass
         # return summary_statistics 
         # use this function as a basis for optimizer and backtester (to be developed later)
         # implement "PHASE" concept 
-       
+
+    def event_alert(self):
+        pass
+        # fire alerts whenever necessary       
+
+class UserInfoManagement():
+    pass
+    # Real Server vs Simulator
+    # Account management / password together
 
 class BackTester():
     pass
@@ -52,12 +75,12 @@ class Optimizer():
     # consider to build the best experiment design for optimization process
     # in designing optimizer, we may analyze per type of stocks in price evolution (e.g., band style, spike style, 
     # continual evaluation sytle, continual devaluation style)
+    # application of AI/ML
+
+class Economics():
+    pass
+    # Macro economic phase defining and finding
 
 
-if __name__ = "__main__":
-    controller = Controller()
-    
-
-
-
-
+if __name__ == "__main__":
+    ct = Controller()

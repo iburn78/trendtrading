@@ -1,4 +1,4 @@
-import sys, os.path
+import sys, os
 from Kiwoom import *
 import xlsxwriter
 import random
@@ -21,12 +21,16 @@ MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is mod
 # TAX_RATE = 0.003          # real TAX_RATE (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products)
 FEE_RATE = 0.0035           # for simulation
 TAX_RATE = 0.0025           # for simulation (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
+
 CREATE_NEW_MASTER_BOOK = True # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
-# dec_made_DICTIONARY: new_ent (new_ent), reinv (reinvested), a_sold (a_sold), p_sold (partial_sold), SUSPEND (LLB_suspend), released (suspend_release), bd_elev (bound_elevated), loaded, EXCEPT (loading_exception)
+                              # Note: refer to the note below TRENDTRADE_EXCEPT_LIST
+TRENDTRADE_EXCEPT_LIST = []
+                              # Codes in this list are not loaded into master_book (regardless whether you actually have this stock or not in the account)
+                              # Note: When adding to or subtract from TRENDTRADE_EXCEPT_LIST, CREATE_NEW_MASTER_BOOK should be set to True. 
+                              # Otherwise, integrity checker will fail
 
-TRENDTRADE_EXCEPT_LIST = ['105560', '078930']  # CODES IN THIS LIST ARE NOT LOADED INTO MASTER_BOOK
-# Note: When adding to or subtract from TRENDTRADE_EXCEPT_LIST, CREATE_NEW_MASTER_BOOK should be set to True. Otherwise, integrity checker will fail
-
+# items in dec_made: new_ent (new_ent), reinv (reinvested), a_sold (a_sold), p_sold (partial_sold), 
+#                    SUSPEND (LLB_suspend), released (suspend_release), bd_elev (bound_elevated), loaded, EXCEPT (loading_exception)
 
 class TrTrader(): 
     def __init__(self):
@@ -43,9 +47,15 @@ class TrTrader():
         self.status_print()
         self.status_summary_report()
 
+    # def __del__(self):
+    #     del self.km
+    #     print("TrTrader object deleted")
+
     def run_(self):
         cash = self.trendtrading_mainlogic() # returns cash amount if all trtrade_list buy_sells are executed
         self.load_external_list(cash)
+        if len(self.trtrade_list.loc[self.trtrade_list['note']=='yet']) == 0: 
+            print("trtrade list empty")
         self.trade_stocks()
 
     def load_external_list(self, cash): 
@@ -72,10 +82,7 @@ class TrTrader():
                     if cash > ticket*MIN_CASH_FOR_PURCHASE_RATE: 
                         cash = cash - ticket
                     else:
-                        ######################################################
-                        # CHECK IF KIWOOM API WOULD LET THIS CONTINUE... 
-                        # IF NOT, THIS MAY RAISE EXCEPTION TO HALT THE SYSTEM
-                        print("*** WARNING: Cash is not enough for external list purchase: ", el.at[i, 'code'], " - continue anyway") 
+                        raise Exception("Cash is not enough for external list purchase: " + el.at[i, 'code'])
                 else: 
                     if el.at[i,'code'] not in list(bk['code']):
                         print("*** WARNING: External list contains sell item not in current trtrading list: ", el.at[i, 'code'], " - this item ignored")
@@ -92,7 +99,7 @@ class TrTrader():
                 self.trtrade_list = self.trtrade_list.append(el)
             
         else: 
-            print('No external buy_sell list')
+            # print('No external buy_sell list')
             pass
 
 
@@ -111,7 +118,7 @@ class TrTrader():
                     self.km.chejan_finish_data = []
                     self._write_transaction_to_master_book(a[0], a[1], a[2], a[3], a[4], a[5])
                 else:
-                    print("Errer in order processing")
+                    print("--- Error in order processing: ", self.trtrade_list['code'][i])
                     self.trtrade_list.at[i, "note"] = 'failed'
 
     def trendtrading_mainlogic(self):
@@ -494,7 +501,6 @@ class TrTrader():
         self.km.trade_log_write(' - Return(%): ' + tr_return_rate + ' | #items: ' + str(no_active))
         self.km.trade_log_write(" - Total invested(k): " + tr_invested_total + ' | Current Value(k): ' + tr_cvalue_total)
         self.km.trade_log_write(' - Realized Return Total(k): ' + tr_realized_return_total + ' | Exception List: ' + str(TRENDTRADE_EXCEPT_LIST))
-        self.km.trade_log_write("-----------------------------------------")
 
 
     def status_print(self):
@@ -509,10 +515,10 @@ class TrTrader():
                 mb_print.at[i, 'LLB'] = format(float(mb_print.at[i, 'LLB'])*100, '.1f')
                 mb_print.at[i, 'LB'] = format(float(mb_print.at[i, 'LB'])*100, '.1f')
                 mb_print.at[i, 'UB'] = format(float(mb_print.at[i, 'UB'])*100, '.1f')
-                mb_print.at[i, 'invtotal'] = format(int(int(mb_print.at[i, 'invtotal'])/1000), ',')
-                mb_print.at[i, 'cvalue'] = format(int(int(mb_print.at[i, 'cvalue'])/1000), ',')
-                mb_print.at[i, 'ret'] = format(int(int(mb_print.at[i, 'ret'])/1000), ',')
-                mb_print.at[i, 'cash'] = format(int(int(mb_print.at[i, 'cash'])/1000), ',')
+                mb_print.at[i, 'invtotal'] = format(int(float(mb_print.at[i, 'invtotal'])/1000), ',')
+                mb_print.at[i, 'cvalue'] = format(int(float(mb_print.at[i, 'cvalue'])/1000), ',')
+                mb_print.at[i, 'ret'] = format(int(float(mb_print.at[i, 'ret'])/1000), ',')
+                mb_print.at[i, 'cash'] = format(int(float(mb_print.at[i, 'cash'])/1000), ',')
                 mb_print.at[i, 'retrate'] = format(float(mb_print.at[i, 'retrate'])*100, '.1f')
             mb_print = mb_print.rename(columns={'cprice': 'cpr', 'nshares': 'vol', 'nreinv': 'nr', 'LLB': 'LL(%)', 'LB': 'L(%)', 'UB': 'U(%)', 
                                         'invtotal': 'invt(k)', 'cvalue': 'cval(k)', 'retrate':'ret(%)', 'ret': 'ret(k)', 'dec_made': 'dec', 'active': 'act', 'cash': 'cash(k)'})
@@ -522,7 +528,7 @@ class TrTrader():
         if len(self.trtrade_list) > 0:
             print('trtrade_list (up to last 75 items): \n', tabulate(self.trtrade_list.loc[-75:, :], headers='keys', tablefmt='psql'))
         else: 
-            print('trtrade_list empty')
+            print('trtrade list empty')
 
         
 if __name__ == "__main__": 
