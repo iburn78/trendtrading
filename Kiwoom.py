@@ -285,7 +285,7 @@ class Kiwoom(QAxWidget):
     def get_price(self, code): 
         self.set_input_value('종목코드', code)
         self.comm_rq_data('opt10001_req', 'opt10001', 0, '2000')
-        return self.cprice
+        return self.cprice # cprice will return integer value. 0 will be returned when API returns ""
 
     def get_account_stock_list(self, ACCOUNT_NO):
         self.set_input_value("계좌번호", ACCOUNT_NO)

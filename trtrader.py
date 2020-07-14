@@ -23,14 +23,32 @@ FEE_RATE = 0.0035           # for simulation
 TAX_RATE = 0.0025           # for simulation (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
 
 CREATE_NEW_MASTER_BOOK = True # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
-                              # Note: refer to the note below TRENDTRADE_EXCEPT_LIST
+                               # Note: refer to the note below TRENDTRADE_EXCEPT_LIST
+                               # Or, you may leave this as False, and simply delete the existing master book file / or manually move the file to 
+                               # back-up folder with filename change 
 TRENDTRADE_EXCEPT_LIST = []
                               # Codes in this list are not loaded into master_book (regardless whether you actually have this stock or not in the account)
-                              # Note: When adding to or subtract from TRENDTRADE_EXCEPT_LIST, CREATE_NEW_MASTER_BOOK should be set to True. 
-                              # Otherwise, integrity checker will fail
+                              # Note: When adding to or subtract from TRENDTRADE_EXCEPT_LIST, CREATE_NEW_MASTER_BOOK should be set to True, or 
+                              # the master book should be newly created (e.g., there should be no previous master book excel file, so that it can be created) 
+                              # Otherwise, integrity checker could fail (i.e., if you already have the stock in the EXC-LIST in the master_book, 
+                              # checker will raise error as the master book has a stock in the EXC-LIST. However, if the master book does not have the stock, 
+                              # there will be no error raised.)
 
 # items in dec_made: new_ent (new_ent), reinv (reinvested), a_sold (a_sold), p_sold (partial_sold), 
 #                    SUSPEND (LLB_suspend), released (suspend_release), bd_elev (bound_elevated), loaded, EXCEPT (loading_exception)
+#
+# Note: 
+# - External list is loaded and added to trtrade_list, and erased (moved to backup/) when Python code starts 
+# - All 'yet' item in trtrade_list are tried only once
+# - Trtrade_list is lost when Python code finishes  
+# - Therefore, external list could lost without any successful execution if the Python code runs/finishes during out of market open time
+# - So, be careful not to lose external_list items 
+# (YOU MAY IMPROVE IF NEEDED - NOT TO AUTOMATICALLY LOSE EXTERNAL ITMES)
+# 
+# - On the other hand, automatically generated items in trtrade_list by trendtrading_mainlogic are safe to lose as long as CREATE_NEW_MASTER_BOOK == False, 
+#   as they will be re-created when trendtrading_mainlogic is re-run
+
+
 
 class TrTrader(): 
     def __init__(self):
@@ -38,6 +56,7 @@ class TrTrader():
         if not self.km.connect_status: 
             sys.exit("System Exit")
         self.bounds_prep()
+        self.prev_mbf_exists = os.path.exists(MASTER_BOOK_FILE)
         self.master_book_initiator(START_CASH, replace = CREATE_NEW_MASTER_BOOK)
         self.master_book_integrity_checker()
         self.trtrade_list = pd.DataFrame(columns = ['code', 'amount', 'buy_sell', 'note'])
@@ -72,31 +91,44 @@ class TrTrader():
                     continue
 
                 cprice = self.km.get_price(el.at[i,'code'])
+                if cprice == 0: 
+                    print("*** WARNING: External list contains item with zero current price: ", el.at[i, 'code'], " - this item ignored")
+                    el = el.drop(i)
+                    continue
+
                 if el.at[i, 'buy_sell'] == 'buy': 
                     if el.at[i, 'code'] in list(bk['code']):
                         print("*** WARNING: External list contains item in current trtrading list: ", el.at[i, 'code'], " - this item ignored")
                         el = el.drop(i)
                         continue
-
+                    if el.at[i, 'amount'] == 0:
+                        el.at[i, 'amount'] = int(TICKET_SIZE/cprice) 
+                        print("*** External list contains item with buy quantity set to zero: ", el.at[i, 'code'], " - sell quanity set to TICKET_SIZE") 
                     ticket = int(cprice*el.at[i, 'amount']*self.tax_fee_adjustment('buy'))
                     if cash > ticket*MIN_CASH_FOR_PURCHASE_RATE: 
                         cash = cash - ticket
                     else:
                         raise Exception("Cash is not enough for external list purchase: " + el.at[i, 'code'])
-                else: 
+                else: # 'sell'
                     if el.at[i,'code'] not in list(bk['code']):
                         print("*** WARNING: External list contains sell item not in current trtrading list: ", el.at[i, 'code'], " - this item ignored")
                         continue
                     ci = bk.loc[bk['code'] == el.at[i, 'code']]
-                    if el.at[i, 'amount'] > int(ci['nshares']):
+                    if el.at[i, 'amount'] == 0:
+                        el.at[i, 'amount'] = int(ci['nshares'])
+                        print("*** External list contains item with sell quantity set to zero: ", el.at[i, 'code'], " - sell quanity set to max") 
+                    elif el.at[i, 'amount'] > int(ci['nshares']):
                         print("*** WARNING: External list contains item with sell quantity exceeding current quantity: ", el.at[i, 'code'], " - sell quanity set to max") 
                         el.at[i, 'amount'] = int(ci['nshares'])
+                    else: 
+                        pass
                     ticket = int(cprice*el.at[i, 'amount']*self.tax_fee_adjustment('sell'))
                     cash = cash + ticket
 
             if len(el) > 0: 
                 print('External buy_sell list loaded')
                 self.trtrade_list = self.trtrade_list.append(el)
+                self.trtrade_list = self.trtrade_list.reset_index(drop = True)
             
         else: 
             # print('No external buy_sell list')
@@ -195,7 +227,7 @@ class TrTrader():
         ch = int(self.km.get_cash(ACCOUNT_NO))
         print('Cash in Kiwoom Account is: ', format(ch, ','))
                 
-        if CREATE_NEW_MASTER_BOOK == True:
+        if self.prev_mbf_exists == False or CREATE_NEW_MASTER_BOOK == True:
             if ch < START_CASH - bk['invtotal'].sum()*self.tax_fee_adjustment('buy'):
                 raise Exception('INSUFFICIENT CASH TO START TREND TRADING')
             entries = pd.DataFrame(columns = self.master_book.columns)
@@ -248,15 +280,16 @@ class TrTrader():
             print('[Initiation success]: Existing stock list from Kiwoom API matches with master_book') 
 
     def master_book_initiator(self, initial_cash_amount, replace = False): 
-        if os.path.exists(MASTER_BOOK_FILE) and not replace: 
+        if self.prev_mbf_exists and not replace: 
             print("USING EXISTING MASTER BOOK - master book file already exists")
 
         else:
-            if os.path.exists(MASTER_BOOK_FILE) and replace: 
+            if self.prev_mbf_exists and replace: 
                 t = time.strftime("_%Y%m%d_%H%M%S")
                 n = MASTER_BOOK_BACKUP_FILE[:-5]
                 os.rename(WORKING_DIR_PATH+MASTER_BOOK_FILE, WORKING_DIR_PATH+n+t+'.xlsx')
-            
+
+            self.prev_mbf_exists = False 
             mb = xlsxwriter.Workbook(MASTER_BOOK_FILE)
             mbws = mb.add_worksheet() 
             mbws.write('A1', 'code') 
@@ -482,7 +515,7 @@ class TrTrader():
         # Number of active items
         cash_account = format(int(int(self.km.get_cash(ACCOUNT_NO))/1000), ',')
         mb_active = self.master_book.loc[self.master_book['active']]
-        cash_trtrading = format(int(mb_active.at[mb_active.index[-1], 'cash']/1000), ',')
+        cash_trtrading = format(int(self.master_book.at[self.master_book.index[-1], 'cash']/1000), ',') # there might not be any active item.
         tr_invested_total = mb_active['invtotal'].sum()
         tr_cvalue_total = mb_active['cvalue'].sum()
         if tr_invested_total > 0: 

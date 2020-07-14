@@ -13,14 +13,16 @@ TRTRADE_FIN_TIME = "15:20"
 TRTRADE_RUN_INTERVAL = 10 # second
 RUN_PENDING_INTERVAL = 10
 
-MKT_OPEN_TIME = dtime.fromisoformat(TRTRADE_RUN_TIME)
-MKT_CLOSE_TIME = dtime.fromisoformat(TRTRADE_FIN_TIME)
+MKT_OPEN_TIME = TRTRADE_RUN_DTIME = dtime.fromisoformat(TRTRADE_RUN_TIME)
+MKT_CLOSE_TIME = TRTRADE_FIN_DTIME = dtime.fromisoformat(TRTRADE_FIN_TIME)
 VERSION_CHECK_MSG = 'VERSION CHECK FINISHED'
 
 class Controller():
     def __init__(self): 
         schedule.every().day.at(VERSION_CHK_TIME).do(self.run_)
         schedule.every().day.at(TRTRADE_RUN_TIME).do(self.run_)
+        if datetime.now().time() > TRTRADE_RUN_DTIME and datetime.now().time() < TRTRADE_FIN_DTIME:
+            self.run_()
         while 1: 
             schedule.run_pending()
             print('.', end='')
@@ -29,7 +31,7 @@ class Controller():
     def run_(self): 
         print("\nController run: ", time.strftime("%Y/%m/%d %H:%M:%S"))
         os.system("python daytask.py")
-        if datetime.now().time() < MKT_OPEN_TIME: 
+        if datetime.now().time() < TRTRADE_RUN_DTIME: 
             with open(TRADE_LOG_FILE) as f: 
                 msg = f.read()
                 if msg[-23:-1] == VERSION_CHECK_MSG:
