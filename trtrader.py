@@ -75,7 +75,8 @@ class TrTrader():
         self.load_external_list(cash)
         if len(self.trtrade_list.loc[self.trtrade_list['note']=='yet']) == 0: 
             print("trtrade list empty")
-        self.trade_stocks()
+        else: 
+            self.trade_stocks()
 
     def load_external_list(self, cash): 
         # check exception list (stocks in exception list as well as stocks in master_book: exclude any existing stocks)
@@ -163,7 +164,7 @@ class TrTrader():
         for i in mb_active.index:
             updated_price = self.km.get_price(mb_active.at[i, 'code'])
             updated_value = int(updated_price*mb_active.at[i, 'nshares']*self.tax_fee_adjustment('sell'))
-            updated_rr = round(updated_value/mb_active.at[i, 'invtotal'] - 1, 4)
+            updated_rr = round(updated_value/mb_active.at[i, 'invtotal'] - 1, 4) # return rate
             mb_active.at[i, 'cprice'] = updated_price
             mb_active.at[i, 'cvalue'] = updated_value
             mb_active.at[i, 'retrate'] = updated_rr

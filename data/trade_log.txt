@@ -390,3 +390,51 @@ VERSION CHECK FINISHED
  - 2020 0714 14:30:34 SK바이오팜(326030) +매수, 4/15, at price: 189,500
  - 2020 0714 14:30:35 SK바이오팜(326030) +매수, 15/15, at price: 189,500
    > average price: 189,500
+[SendOrder] 2020 0715 11:22:43 0108274 send_order_req 0101 8135010411 1 122630 226 0 03 
+ - 2020 0715 11:22:46 KODEX 레버리지(122630) +매수, 226/226, at price: 13,215
+   > average price: 13,215
+[SendOrder] 2020 0715 11:22:46 0108293 send_order_req 0101 8135010411 1 122630 226 0 03 
+ - 2020 0715 11:22:47 KODEX 레버리지(122630) +매수, 226/226, at price: 13,215
+   > average price: 13,215
+[SendOrder] 2020 0715 11:22:59 0108389 send_order_req 0101 8135010411 2 122630 452 0 03 
+ - 2020 0715 11:23:04 KODEX 레버리지(122630) -매도, 60/452, at price: 13,220
+ - 2020 0715 11:23:07 KODEX 레버리지(122630) -매도, 260/452, at price: 13,216
+ - 2020 0715 11:23:10 KODEX 레버리지(122630) -매도, 452/452, at price: 13,216
+   > average price: 13,216
+[SendOrder] 2020 0715 11:28:43 0110468 send_order_req 0101 8135010411 1 122630 227 0 03 
+ - 2020 0715 11:28:44 KODEX 레버리지(122630) +매수, 100/227, at price: 13,200
+ - 2020 0715 11:28:45 KODEX 레버리지(122630) +매수, 227/227, at price: 13,200
+   > average price: 13,200
+[SendOrder] 2020 0715 11:32:23 0111851 send_order_req 0101 8135010411 2 000660 36 0 03 
+ - 2020 0715 11:32:24 SK하이닉스(000660) -매도, 36/36, at price: 83,300
+   > average price: 83,300
+--- SendOrder Fail: (0) 2020 0715 11:32:24  send_order_req 0101 8135010411 2 000660 36 0 03 
+[SendOrder] 2020 0715 11:32:24 0111868 send_order_req 0101 8135010411 2 122630 227 0 03 
+ - 2020 0715 11:32:26 KODEX 레버리지(122630) -매도, 20/227, at price: 13,205
+ - 2020 0715 11:32:26 KODEX 레버리지(122630) -매도, 227/227, at price: 13,205
+   > average price: 13,205
+--- SendOrder Fail: (0) 2020 0715 11:32:26  send_order_req 0101 8135010411 2 122630 227 0 03 
+[Trend Trade Summary - 20200715 16:48:31]
+ - Kiwoom Cash(k): 492,758 | TrTrading Cash(k): 294,146
+ - Return(%): -2.89 | #items: 2
+ - Total invested(k): 5,853 | Current Value(k): 5,683
+ - Realized Return Total(k): 0 | Exception List: []
+--- SendOrder Fail: (0) 2020 0715 16:52:34  send_order_req 0101 8135010411 2 000660 0 0 03 
+--- SendOrder Fail: (0) 2020 0715 16:52:35  send_order_req 0101 8135010411 2 000660 0 0 03 
+--- SendOrder Fail: (0) 2020 0715 16:52:35  send_order_req 0101 8135010411 2 122630 0 0 03 
+--- SendOrder Fail: (0) 2020 0715 16:52:36  send_order_req 0101 8135010411 2 122630 0 0 03 
+[Trend Trade Summary - 20200715 16:54:21]
+ - Kiwoom Cash(k): 492,758 | TrTrading Cash(k): 294,146
+ - Return(%): -2.89 | #items: 2
+ - Total invested(k): 5,853 | Current Value(k): 5,683
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200715 16:55:20]
+ - Kiwoom Cash(k): 492,758 | TrTrading Cash(k): 294,146
+ - Return(%): -2.89 | #items: 2
+ - Total invested(k): 5,853 | Current Value(k): 5,683
+ - Realized Return Total(k): 0 | Exception List: []
+[Trend Trade Summary - 20200715 16:58:00]
+ - Kiwoom Cash(k): 609,180 | TrTrading Cash(k): 294,146
+ - Return(%): -2.89 | #items: 2
+ - Total invested(k): 5,853 | Current Value(k): 5,683
+ - Realized Return Total(k): 0 | Exception List: []

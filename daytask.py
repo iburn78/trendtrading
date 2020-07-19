@@ -30,10 +30,10 @@ else:
             if datetime.now().time() > MKT_CLOSE_TIME: 
                 print("Market Closed")
                 break
+            time.sleep(TRTRADE_RUN_INTERVAL)
         except KeyboardInterrupt:
             print("Keyboard Interrupt Detected")
             break
-        time.sleep(TRTRADE_RUN_INTERVAL)
     
     trtrader.close_()
     del trtrader

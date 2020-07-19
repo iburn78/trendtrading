@@ -30,7 +30,10 @@ class Controller():
 
     def run_(self): 
         print("\nController run: ", time.strftime("%Y/%m/%d %H:%M:%S"))
-        os.system("python daytask.py")
+        try: 
+            os.system("python daytask.py")
+        except KeyboardInterrupt:
+            print("Keyboard interrupt detected within os.system/daytask.py")
         if datetime.now().time() < TRTRADE_RUN_DTIME: 
             with open(TRADE_LOG_FILE) as f: 
                 msg = f.read()

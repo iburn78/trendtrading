@@ -3,12 +3,12 @@ import xlsxwriter
 import time
 import pandas as pd
 from Kiwoom import WORKING_DIR_PATH
-from trtrader import EXTERNAL_LIST_FILE, EXTERNAL_LIST_BACKUP_FILE, TICKET_SIZE, TRENDTRADE_EXCEPT_LIST
+from trtrader import EXTERNAL_LIST_FILE, EXTERNAL_LIST_BACKUP_FILE
 import yfinance as yf
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters # For datetime series converting.... 
 
-RESET_EXTLIST_ON_INITIATION = True
+RESET_EXTLIST_ON_INITIATION = False # i.e., ignoring existing file if True
 
 # THIS LIST GEN TO BE RUN INDEPENDENTLY FROM TRTRADER
 # If 'amount' is set to zero, 'amount' will be set to the actual holding quantity under 'sell' and set to TICKET_SIZE under 'buy'
@@ -25,12 +25,53 @@ RESET_EXTLIST_ON_INITIATION = True
 #                                                   ['122630', 500, 'sell', 'yet'] # proper selling 
 #                                                   ['078930', 1554, 'sell', 'yet'] # in EXCEPT
 
+# Be careful when adding items to EXTLIST, especially duplicated items: 
+# when buying, it will result in duplicated buying
+# when selling, second or later selling could be ignored
+
+
+
 class ExtListGen():
     def __init__(self):
         self.external_list_initiator()
         register_matplotlib_converters()
     
-    def run_(self):
+    def run_(self): 
+        self.external_list.loc[len(self.external_list)] = ['000660', 0, 'sell', 'yet'] # in EXCEPT 
+        self.external_list.loc[len(self.external_list)] = ['000660', 0, 'sell', 'yet'] # in EXCEPT 
+        self.external_list.loc[len(self.external_list)] = ['122630', 0, 'sell', 'yet'] # in EXCEPT 
+        self.external_list.loc[len(self.external_list)] = ['122630', 0, 'sell', 'yet'] # in EXCEPT 
+
+        # self.test_plot()
+        self.write_external_list_to_Excel(self.external_list) # empty EXTERNAL LIST FILE will be removed
+        print(self.external_list)
+
+    def external_list_initiator(self):
+        self.external_list = pd.DataFrame({'code':pd.Series([], dtype='str'),
+                                           'amount':pd.Series([], dtype='int'),
+                                           'buy_sell':pd.Series([], dtype='str'),
+                                           'note':pd.Series([], dtype='str')})
+
+        if os.path.exists(EXTERNAL_LIST_FILE) and not RESET_EXTLIST_ON_INITIATION:
+            # read el from existing excel and use it as starting point
+            el_converters = {'code': str, 'amount': int, 'buy_sell': str, 'note': str}
+            existing_el = pd.read_excel(EXTERNAL_LIST_FILE, index_col = None, converters=el_converters)
+            if len(existing_el) > 0: 
+                self.external_list = self.external_list.append(existing_el)
+                print("Items in existing EXTERNAL LIST FILE loaded")
+            os.remove(EXTERNAL_LIST_FILE)
+
+        elif os.path.exists(EXTERNAL_LIST_FILE) and RESET_EXTLIST_ON_INITIATION:
+            t = time.strftime("_%Y%m%d_%H%M%S")
+            n = EXTERNAL_LIST_BACKUP_FILE[:-5]
+            os.rename(WORKING_DIR_PATH+EXTERNAL_LIST_FILE, WORKING_DIR_PATH+n+t+'(unexecuted).xlsx')
+
+    def write_external_list_to_Excel(self, el):
+        if len(el) > 0: 
+            el.to_excel(EXTERNAL_LIST_FILE, index = False)
+
+    
+    def test_plot(self):
         sm = yf.Ticker('005930.KS')
         sk = yf.Ticker('000660.KS')
         hst = sm.history(period='max', auto_adjust=False)
@@ -56,38 +97,6 @@ class ExtListGen():
         ax2.grid()
 
         plt.show()
-
-        self.write_external_list_to_Excel(self.external_list)
-        print(self.external_list)
-
-    def external_list_initiator(self):
-        if os.path.exists(EXTERNAL_LIST_FILE) and not RESET_EXTLIST_ON_INITIATION:
-            print("Adding to the existing EXTERNAL LIST FILE")
-
-        else:
-            if os.path.exists(EXTERNAL_LIST_FILE) and RESET_EXTLIST_ON_INITIATION:
-                t = time.strftime("_%Y%m%d_%H%M%S")
-                n = EXTERNAL_LIST_BACKUP_FILE[:-5]
-                os.rename(WORKING_DIR_PATH+EXTERNAL_LIST_FILE, WORKING_DIR_PATH+n+t+'(unexecuted).xlsx')
-
-            print("Generating a new EXTERNAL LIST FILE")
-            el = xlsxwriter.Workbook(EXTERNAL_LIST_FILE)
-            elws = el.add_worksheet() 
-            elws.write('A1', 'code') 
-            elws.write('B1', 'amount') 
-            elws.write('C1', 'buy_sell') 
-            elws.write('D1', 'note') 
-            el.close()
-
-        el_converters = {'code': str, 'amount': int, 'buy_sell': str, 'note': str}
-        self.external_list = pd.read_excel(EXTERNAL_LIST_FILE, index_col = None, converters=el_converters)
-
-    def write_external_list_to_Excel(self, el):
-        if len(el) > 0: 
-            el.to_excel(EXTERNAL_LIST_FILE, index = False)
-        else:
-            os.remove(EXTERNAL_LIST_FILE) # empty file is being deleted
-    
 
 class FinancialAnalysis():
     pass

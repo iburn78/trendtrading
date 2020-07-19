@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>TrendTrader Manual - Version 0.1</title>
+        <style>
+</style>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item { list-style-type: none; } .task-list-item-checkbox { margin-left: -20px; vertical-align: middle; }
+</style>
+        
+        
+        
+    </head>
+    <body class="vscode-light">
+        <h1 id="trendtrader-manual---version-01">TrendTrader Manual - Version 0.1</h1>
+<p>As of 2020-07-19</p>
+<h2 id="overview-of-the-structure">Overview of the Structure</h2>
+<p>Key components for the TrendTrading (trtrading):</p>
+<ul>
+<li><strong>controller</strong>: defines the schedule to check version of Kiwoom API and to run the trtrader (mainly to cope with Kiwoom's infrequent API update while automate trtrader as much as possible)</li>
+<li><strong>daytask</strong>: provides code for controller to run for version check and trtrader</li>
+<li><strong>Kiwoom</strong>: defines Kiwoom API functions</li>
+<li><strong>trtrader</strong>: defines trtrader main db (master_book) and main logic</li>
+<li><strong>extlistgen</strong>: provides external buy and sell command to trtrader</li>
+<li><strong>bounds.xlsx</strong>: provides levels of LLB, LB, UB per the number of reinvestments</li>
+</ul>
+<h2 id="controller">Controller</h2>
+<ul>
+<li>Currently, main tasks of controller are to run Kiwoom API well before market open for version check, and to run trtrader during market open</li>
+<li>Running sequence:
+<ul>
+<li>if executed before version check time, controller will run Kiwoom API and connect to server at the version check time (by executing daytask); if version check is unsuccessful, the controller exits (done by checking trade log file)</li>
+<li>if executed after version check time and before trtrader run time, controller will run trtrader (by executing daytask) at the trtrader run time (e.g., market open time)</li>
+<li>if executed after trtrader run time, controller will run trtrader (by executing daytask) immediately if the current time is before the market close time</li>
+<li>a single trtrader run (or a single daytask run) will finish once the market closes (or when version check is done)</li>
+<li>at each day's market closes, controller will be in a wait mode for until the next day's version check time, and the daily routine continues</li>
+</ul>
+</li>
+<li>controller uses os.system(&quot;python <a href="http://daytask.py">daytask.py</a>&quot;), which might not be recommended way to run nested python code. However, Kiwoom API seems not properly finishes under other methods (e.g. by creating Kiwoom API object and remove/delete the object would not result in clean removal of Kiwoom API), and then it is not likely possible to automate the trtrader running everyday (with proper version check)</li>
+</ul>
+<h2 id="daytask">daytask</h2>
+<ul>
+<li>runs Kiwoom API by creating a Kiwoom instance if run time is before version check time defined in controller</li>
+<li>runs trtrader by creating a trtrader instance during market open time</li>
+<li>checks holidays as defined in controller</li>
+</ul>
+<h2 id="kiwoom">Kiwoom</h2>
+<ul>
+<li>Functions related with Kiwoom API are implemented (refer to Slack autotrading section for description, or the original book on <a href="http://wikidocs.net">wikidocs.net</a>)</li>
+</ul>
+<h2 id="trtrader">trtrader</h2>
+<ul>
+<li>
+<p>Fundamental principle of trtrader</p>
+<p>Select target and timing, and when the decision is right make follow-up investments to maximize earning and when not minimize loss</p>
+<table>
+<thead>
+<tr>
+<th>Overview of the algorithm</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>- Look for targets that have high potential of substantial price increase (value) in the near future (timing)</td>
+</tr>
+<tr>
+<td>- Make a test investment of a ticket size into each of the targets</td>
+</tr>
+<tr>
+<td>- If the choice of the target and the investment timing are both right, the target's price should increase: if the price hits a certain level (UB), then make follow-up reinvestment of a ticket size</td>
+</tr>
+<tr>
+<td>- On the other hand, if either the choice of the target or the timing is wrong then the price should decrease: if the price hits a certain level (LB), then sell all shares of the target at a loss</td>
+</tr>
+<tr>
+<td>- The loss should be small as it is a loss with respect to initial investment of a ticket size; consider this as the price for the wrong decision</td>
+</tr>
+<tr>
+<td>- However, as trtrader will only trade during market open time, there could be price jump between market close and open, and sometimes there could be large price decline without time to react</td>
+</tr>
+<tr>
+<td>- In such a case, it is most likely due to a macro event affecting multiple stocks at the same time, and rash selling due to the algorithm should be avoided: therefore, if the price hits a certain level (LLB) lower than LB, the selling should be suspended</td>
+</tr>
+<tr>
+<td>- Once suspended, the stock should be held until the price recovers to higher than LB, and then it could be traded normally under trtrader logic</td>
+</tr>
+<tr>
+<td>- For stocks that are reinvested, they follow the same logic as described above, but the bounds (UB, LB, LLB) are updated accordingly</td>
+</tr>
+<tr>
+<td>- Max number of reinvested is predefined, and max number of bounds elevation is also predefined (as there could be bounds elevation without making reinvestment)</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>Database structure</p>
+<ul>
+<li>Transaction history is managed in master_book DataFrame: loaded from excel (or newly created) and saved to excel
+<ul>
+<li>Active items in master_book are the current account holdings</li>
+<li>Only Kiwoom API transaction results are added into master_book (including reinvestments) as a new record</li>
+<li>Bounds elevation, changing status to suspend due to hitting LLB, releasing, and etc which adjusts records in master_book that are not involving actual Kiwoom API transactions are handled in trendtrading_mainlogic</li>
+</ul>
+</li>
+<li>trtrade_list DataFrame is a run-time DataFrame which contains orders to be executed in Kiwoom API</li>
+<li>external_list is a DataFrame that is loaded from an excel file and added to trtrade_list</li>
+<li>Kiwoom trade_log text file is a separate log file run by Kiwoom class</li>
+</ul>
+</li>
+<li>
+<p>Procedeure of trtrader running</p>
+<ul>
+<li>
+<p>Kiwoom API is connected to Kiwoom server (currently test server) using account number defined herein</p>
+</li>
+<li>
+<p>Bounds are loaded from an external excel file</p>
+</li>
+<li>
+<p>master_book is loaded or created</p>
+<ul>
+<li>Refer to the comments in trtrader next to the definition of CREATE_NEW_MASTER_BOOK</li>
+<li>If newly created, an empty excel file with column names are created with definition of START_CASH</li>
+<li>master_book is (then) loaded from the excel file</li>
+</ul>
+</li>
+<li>
+<p>master_book integrity is checked</p>
+<ul>
+<li>If master_book is newly created, integrity checker will load existing stock list to the master_book</li>
+<li>Cash level is checked whether account cash is actually larger then START_CASH negative investment total of account holding stocks, and set cash level in master_book to START_CASH - investment total (plus buying fee)</li>
+<li>If master_book is loaded from an existing master_book excel file, then the integrity checker checks whether the records in master_book matches the current account holdings</li>
+<li>Tax and fee are adjusted when matching as the tax/fee calculation method for master_book is different from the way for record received through Kiwoom API</li>
+<li>The integrity checker always ignores items in EXCEPT_LIST, and raises Exception if master_book contains items in EXCEPT_LIST (although not explicitly checking, it checks the length of active records matches between master_book and current holdings instead)</li>
+</ul>
+</li>
+<li>
+<p>tax and fee adjustments</p>
+<ul>
+<li>tax: 0.25%, fee: 0.35% for buy and sell each under Kiwoom test server</li>
+<li>when buying, buying fee is deducted from cash while investment total (invtotal) is not affected</li>
+<li>for evaluating the current holding total value (cvalue), tax and selling fee are already deducted</li>
+</ul>
+</li>
+<li>
+<p>main procedure: run_(), trendtrading_mainlogic_(), trade_stocks()</p>
+<ol>
+<li>run_ executes trendtrading_mainlogic that would result in appending to the existing trtrade_list by checking master_book (for details about trendtrading_mainlogic, refer to the comments in the code; basically implements the trtrading algorithm described above)</li>
+<li>run_ checks if there is external_list and loads if exists</li>
+<li>run_ runs trade_stocks would execute &quot;yet&quot; items in trtrade_list</li>
+<li>&quot;failed&quot; items in trtrade_list would not retried to trade_stock
+<ul>
+<li>This might be fine if the item in the trtrade_list is generated through trendtrading_mainlogic</li>
+<li>However, if the item is loaded from external list, failed item might be lost due to this no-retrial</li>
+</ul>
+</li>
+</ol>
+</li>
+<li>
+<p>closing procedure: close_()</p>
+<ul>
+<li>saves master_book to the excel file (overwrite and prev excel file is lost - which is no concern as master_book contains all prev data)</li>
+<li>prints master_book in easier readable format</li>
+<li>prints result summary (e.g., overall return rate)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="extlistgen">extlistgen</h2>
+<ul>
+<li>generates an excel file to be loaded by trtrader that contains list of orders to be executed by Kiwoom API</li>
+<li>although the external list excel file contains orders, trtrader adjust each order according to the following rules:
+<ul>
+<li>codes in EXCEPT_LIST are ignored</li>
+<li>codes for buying currently holding stocks are ignored</li>
+<li>codes for buying with zero volume is set to buy a ticket size</li>
+<li>if cash (which is being checked) is not enough for buying, system raises Exception</li>
+<li>codes for selling stocks that are not in account are ignored</li>
+<li>codes for selling with quantity either zero or more than holding are adjust to selling max quantity</li>
+</ul>
+</li>
+</ul>
+<h2 id="boundsxlsx">bounds.xlsx</h2>
+<ul>
+<li>Located as defined in trtrader</li>
+<li>defines levels of LLB, LB, UB according to the number of reinvestments</li>
+<li>Later this excel file might has to be incorporated into trtrader or a python code at least for parameter optimization</li>
+</ul>
+
+    </body>
+    </html>
