@@ -141,8 +141,9 @@ dmypy.json
 # DB 
 *.db
 
-# CRD
+# CRD and private key
 *.crd
+*.pem
 
 /data/backup
 
