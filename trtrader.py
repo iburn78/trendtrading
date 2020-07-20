@@ -2,19 +2,24 @@ import sys, os
 from Kiwoom import *
 import xlsxwriter
 import random
+import json
 
 MASTER_BOOK_FILE = 'data/master_book.xlsx'
 MASTER_BOOK_BACKUP_FILE = 'data/backup/master_book.xlsx'
 BOUNDS_FILE = 'data/bounds.xlsx'
 EXTERNAL_LIST_FILE = 'data/external_list.xlsx'
 EXTERNAL_LIST_BACKUP_FILE = 'data/backup/external_list.xlsx'
+EXTERNAL_CRD_FILE = 'trtrader.crd'
 # RUN_WAIT_INTERVAL = 30*60 
 
 START_CASH = 300000000
 TICKET_SIZE = 3000000       # Target amount to be purchased in KRW
 MIN_CASH_FOR_PURCHASE_RATE = 1.5
 MIN_CASH_FOR_PURCHASE = TICKET_SIZE*MIN_CASH_FOR_PURCHASE_RATE
-ACCOUNT_NO = '8135010411'   # may create master_book for each account_no
+with open(WORKING_DIR_PATH+EXTERNAL_CRD_FILE) as f:
+    crd = json.load(f)
+    ACCOUNT_NO = crd['ACCOUNT_NO'] # '8135010411' # may create master_book for each account_no
+print(ACCOUNT_NO)
 MAX_REINVESTMENT = 4        # total 5 investments max
 MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is modified
 # FEE_RATE = 0.00015        # real FEE_RATE
