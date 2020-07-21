@@ -26,8 +26,8 @@ RESET_EXTLIST_ON_INITIATION = False # i.e., ignoring existing file if True
 #                                                   ['078930', 1554, 'sell', 'yet'] # in EXCEPT
 
 # Be careful when adding items to EXTLIST, especially duplicated items: 
-# when buying, it will result in duplicated buying
-# when selling, second or later selling could be ignored
+# when buying, duplicated items will lead to multiple buying and increased number of reinvestment, and it could result in an immediate selling as LB gets higher
+# when selling, second or later selling could be ignored if there is no remaining shares
 
 
 
@@ -37,10 +37,8 @@ class ExtListGen():
         register_matplotlib_converters()
     
     def run_(self): 
-        self.external_list.loc[len(self.external_list)] = ['000660', 0, 'sell', 'yet'] # in EXCEPT 
-        self.external_list.loc[len(self.external_list)] = ['000660', 0, 'sell', 'yet'] # in EXCEPT 
-        self.external_list.loc[len(self.external_list)] = ['122630', 0, 'sell', 'yet'] # in EXCEPT 
-        self.external_list.loc[len(self.external_list)] = ['122630', 0, 'sell', 'yet'] # in EXCEPT 
+        self.external_list.loc[len(self.external_list)] = ['000660', 0, 'buy', 'yet'] # in EXCEPT 
+        self.external_list.loc[len(self.external_list)] = ['122630', 0, 'buy', 'yet'] # in EXCEPT 
 
         # self.test_plot()
         self.write_external_list_to_Excel(self.external_list) # empty EXTERNAL LIST FILE will be removed

@@ -12,7 +12,7 @@ if datetime.now().time() < MKT_OPEN_TIME:
     if km.connect_status == True: 
         km.trade_log_write(VERSION_CHECK_MSG)
     else: 
-        km.trade_log_write("VERSHIN CHECK FAILED: ATTENTION REQUIRED ---")
+        km.trade_log_write("VERSION CHECK FAILED: ATTENTION REQUIRED ---")
 
     del km
     app.quit()

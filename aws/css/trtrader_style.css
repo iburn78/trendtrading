@@ -1,0 +1,21 @@
+[class*="col-"] {
+  /*
+  background-color: rgba(255, 255, 255, 0);
+  */
+}
+
+/* for screen larger than sm (mobile) */
+@media(min-width:767px){   
+  .row > img{ 
+    margin-left: 7.5px;
+  }
+} 
+
+/* for screen sm or smaller */
+@media(max-width:767px){   
+}
+
+.list_indent {
+  padding-left: 1.5em;
+  text-indent:-1.5em;
+}
