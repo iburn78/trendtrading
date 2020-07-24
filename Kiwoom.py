@@ -54,11 +54,11 @@ class Kiwoom(QAxWidget):
         self.tr_event_loop.exec_()
         if res == 0 and self.order_number != "": # success  
             # hoga: fixed 00, mkt 03
-            self.trade_log_write(" ".join(["[SendOrder]", time.strftime("%Y %m%d %H:%M:%S"), self.order_number, str(rqname), str(screen_no), str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no)]))
+            self.trade_log_write(" ".join(["[SendOrder]", time.strftime(" %m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no)]))
             self.chejan_event_loop = QEventLoop()
             self.chejan_event_loop.exec_()
         else:
-            self.trade_log_write(" ".join(["--- SendOrder Fail:", "("+str(res)+")", time.strftime("%Y %m%d %H:%M:%S"), self.order_number, str(rqname), str(screen_no), str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no)]))
+            self.trade_log_write(" ".join(["--- SendOrder Fail:", "("+str(res)+")", time.strftime(" %m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no)]))
         time.sleep(API_REQ_TIME_INTERVAL)
         return (res, self.order_number)
 
@@ -75,9 +75,9 @@ class Kiwoom(QAxWidget):
             bs = self.get_chejan_data(905).strip()
             buy_sell = {'+매수': 'buy', '-매도': 'sell'}[bs]
             tr_price = int(self.get_chejan_data(910))
-            tr_time = time.strftime("%Y %m%d %H:%M:%S")
+            tr_time = time.strftime("%m%d %H:%M:%S")
             self._chejan_avg_price_data.append([int(pv), tr_price])
-            self.trade_log_write(" - " + tr_time + " " + stock_name + "("+ stock_code + ") "
+            self.trade_log_write(" " + tr_time + " " + stock_name + "("+ stock_code + ") "
                   + bs + ", " + pv + "/" + oq + ", at price: " + format(tr_price, ','))
             if pv == oq: 
                 tr_time = time.ctime() # for excel file recognition
@@ -90,7 +90,7 @@ class Kiwoom(QAxWidget):
                     avg_price = int(p_sum/int(oq))
                 self.chejan_finish_data = [stock_code, stock_name, buy_sell, avg_price, int(pv), tr_time]
                 self._chejan_avg_price_data = []
-                self.trade_log_write("   > average price: " + format(avg_price, ','))
+                self.trade_log_write(" average price: " + format(avg_price, ','))
                 try:
                     self.chejan_event_loop.exit()
                 except Exception as e: 

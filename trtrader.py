@@ -11,6 +11,7 @@ EXTERNAL_LIST_FILE = 'data/external_list.xlsx'
 EXTERNAL_LIST_BACKUP_FILE = 'data/backup/external_list.xlsx'
 EXTERNAL_CRD_FILE = 'trtrader.crd'
 STATUS_REPORT_FILE = 'data/trtrader_status.txt'
+STATUS_REPORT_MOBILE = 'data/trtrader_status_brief.txt'
 # RUN_WAIT_INTERVAL = 30*60 
 
 START_CASH = 300000000
@@ -27,7 +28,7 @@ MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is mod
 FEE_RATE = 0.0035           # for simulation
 TAX_RATE = 0.0025           # for simulation (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
 
-CREATE_NEW_MASTER_BOOK = True # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
+CREATE_NEW_MASTER_BOOK = False # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
                                # Note: refer to the note below TRENDTRADE_EXCEPT_LIST
                                # Or, you may leave this as False, and simply delete the existing master book file / or manually move the file to 
                                # back-up folder with filename change 
@@ -41,6 +42,7 @@ TRENDTRADE_EXCEPT_LIST = []
 
 # items in dec_made: new_ent (new_ent), reinv (reinvested), a_sold (a_sold), p_sold (partial_sold), 
 #                    SUSPEND (LLB_suspend), released (suspend_release), bd_elev (bound_elevated), loaded, EXCEPT (loading_exception)
+ABRIDGED_DICT = {'new_ent':  'N', 'reinv': 'R', 'a_sold': 'S', 'p_sold': 'P', 'SUSPEND': 'U', 'released': 'A', 'bd_elev': 'B', 'loaded': 'L', 'EXCEPT': 'E'}
 #
 # Note: 
 # - External list is loaded and added to trtrade_list, and erased (moved to backup/) when Python code starts 
@@ -63,7 +65,7 @@ class TrTrader():
         self.bounds_prep()
         self.prev_mbf_exists = os.path.exists(MASTER_BOOK_FILE)
         self.master_book_initiator(START_CASH, replace = CREATE_NEW_MASTER_BOOK)
-        self.master_book_integrity_checker()
+        # self.master_book_integrity_checker()
         self.trtrade_list = pd.DataFrame(columns = ['code', 'amount', 'buy_sell', 'note'])
     
     def close_(self):
@@ -146,9 +148,9 @@ class TrTrader():
         ##################################################
         # MODIFY TO SELL FIRST AND THEN BUY
         bs_lookup = {'buy': 1, 'sell': 2}
-        print("trade stock activated") #######################
-        print(self.trtrade_list) #####################
-        print(self.master_book) #####################
+        # print("trade_stocks activated") #######################
+        # print(self.trtrade_list) #####################
+        # print(self.master_book) #####################
         for i in self.trtrade_list.index:
             if self.trtrade_list["note"][i] == 'yet': # or self.trtrade_list["note"][i] == 'failed': ############################### For failed, re running of tr-mainlogic would result in adding the same item
                 res = self.km.send_order("send_order_req", "0101", ACCOUNT_NO, bs_lookup[self.trtrade_list["buy_sell"][i]], 
@@ -294,7 +296,7 @@ class TrTrader():
 
     def master_book_initiator(self, initial_cash_amount, replace = False): 
         if self.prev_mbf_exists and not replace: 
-            print("USING EXISTING MASTER BOOK - master book file already exists")
+            print("Using existing master book - master book file exists")
 
         else:
             if self.prev_mbf_exists and replace: 
@@ -519,11 +521,10 @@ class TrTrader():
             return 1-(FEE_RATE + TAX_RATE) # when selling, your cash is dedcuted by tax and fee
 
     def status_print(self, to_file = False):
-        l = ['code', 'name', 'cpr', 'vol', 'nr', 'LL(%)', 'L(%)', 'U(%)', 'invt(k)', 'cval(k)', 'ret(%)', 'ret(k)', 'dec', 'act', 'cash(k)']
         mb_print = self.master_book.copy()
         mb_print = mb_print.astype(str)
         for i in mb_print.index:
-            mb_print.at[i, 'name'] = mb_print.at[i, 'name'][:4]
+            mb_print.at[i, 'name'] = mb_print.at[i, 'name'][:6]
             mb_print.at[i, 'cprice'] = format(int(mb_print.at[i, 'cprice']), ',')
             mb_print.at[i, 'nshare'] = format(int(mb_print.at[i, 'nshares']), ',')
             mb_print.at[i, 'LLB'] = format(float(mb_print.at[i, 'LLB'])*100, '.1f')
@@ -535,31 +536,62 @@ class TrTrader():
             mb_print.at[i, 'cash'] = format(int(float(mb_print.at[i, 'cash'])/1000), ',')
             mb_print.at[i, 'retrate'] = format(float(mb_print.at[i, 'retrate'])*100, '.1f')
         mb_print = mb_print.rename(columns={'cprice': 'cpr', 'nshares': 'vol', 'nreinv': 'nr', 'LLB': 'LL(%)', 'LB': 'L(%)', 'UB': 'U(%)', 
-                                    'invtotal': 'invt(k)', 'cvalue': 'cval(k)', 'retrate':'ret(%)', 'ret': 'ret(k)', 'dec_made': 'dec', 'active': 'act', 'cash': 'cash(k)'})
+                                    'invtotal': 'inv(k)', 'cvalue': 'cval(k)', 'retrate':'rt(%)', 'ret': 'rt(k)', 'dec_made': 'dec', 'active': 'act', 'cash': 'cash(k)'})
+        mb_print.drop([0], inplace = True)
+        l = ['code', 'cpr', 'vol', 'nr', 'LL(%)', 'L(%)', 'U(%)', 'inv(k)', 'cval(k)', 'rt(%)', 'rt(k)', 'dec', 'act', 'cash(k)', 'name']
+
+        mb_mobile = mb_print.copy()
+
+        mb_mobile['dec'] = mb_mobile['dec'].map(ABRIDGED_DICT)
+        mb_mobile['act'] = mb_mobile['act'].map({'True': 'A', 'False': 'F'})
+        mb_mobile['DA'] = mb_mobile['dec'] + mb_mobile['act']
+
+        lm = ['code', 'inv(k)', 'nr', 'rt(%)', 'DA', 'name']
+
         if to_file == True: 
             f = open(STATUS_REPORT_FILE, 'w')
-            f.write('MASTER_BOOK (up to last 75 items): \n')
-            f.write(tabulate(mb_print.loc[-75:, l], headers='keys', tablefmt='psql')) 
-            f.write('\n')
+            f.write('master_book (up to last 75 items): \n')
+            f.write(tabulate(mb_print.loc[-75:, l], headers='keys', showindex=False, tablefmt='simple')) 
+            f.write('\n\n')
             f.close()
+
+            m = open(STATUS_REPORT_MOBILE, 'w')
+            m.write('master_book (last 75 items): \n')
+            m.write(tabulate(mb_mobile.loc[-75:, lm], headers='keys', showindex=False, tablefmt='simple')) 
+            m.write('\n\n')
+            m.close()
+
         else: 
-            print('MASTER_BOOK (up to last 75 items): \n', tabulate(mb_print.loc[-75:, l], headers='keys', tablefmt='psql')) 
+            print('MASTER_BOOK (up to last 75 items): \n', tabulate(mb_print.loc[-75:, l], headers='keys', showindex=False, tablefmt='psql'), '\n') 
 
         if len(self.trtrade_list) > 0:
+            for i in self.trtrade_list.index: 
+                self.trtrade_list.at[i, 'name'] = self.km.get_master_code_name(self.trtrade_list.at[i, 'code'])
+
             if to_file == True: 
                 f = open(STATUS_REPORT_FILE, 'a')
                 f.write('trtrade_list (up to last 75 items): \n')
-                f.write(tabulate(self.trtrade_list.loc[-75:, :], headers='keys', tablefmt='psql'))
-                f.write('\n')
+                f.write(tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='simple'))
+                f.write('\n\n')
                 f.close()
+
+                m = open(STATUS_REPORT_MOBILE, 'a')
+                m.write('trtrade_list (last 75 items): \n')
+                m.write(tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='simple'))
+                m.write('\n\n')
+                m.close()
             else: 
-                print('trtrade_list (up to last 75 items): \n', tabulate(self.trtrade_list.loc[-75:, :], headers='keys', tablefmt='psql'))
+                print('trtrade_list (up to last 75 items): \n', tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='psql'), '\n')
         else: 
             if to_file == True: 
                 f = open(STATUS_REPORT_FILE, 'a')
                 f.write('trtrade_list empty \n')
                 f.write('\n')
                 f.close()
+                m = open(STATUS_REPORT_MOBILE, 'a')
+                m.write('trtrade_list empty \n')
+                m.write('\n')
+                m.close()
             else: 
                 print('trtrade_list empty')
 
@@ -591,23 +623,37 @@ class TrTrader():
 
         if to_file == True:
             f = open(STATUS_REPORT_FILE, 'a')
-            f.write("[Trend Trade Summary - " + t + "]")
-            f.write('\n')
-            f.write(" - Kiwoom Cash(k): " + cash_account + ' | TrTrading Cash(k): ' + cash_trtrading)
-            f.write('\n')
-            f.write(' - Return(%): ' + tr_return_rate + ' | #items: ' + str(no_active))
-            f.write('\n')
-            f.write(" - Total invested(k): " + tr_invested_total + ' | Current Value(k): ' + tr_cvalue_total)
-            f.write('\n')
-            f.write(' - Realized Return Total(k): ' + tr_realized_return_total + ' | Exception List: ' + str(TRENDTRADE_EXCEPT_LIST))
-            f.write('\n')
+            f.write("[TrTrade Summary - " + t + "]" + "\n")
+            f.write("- Kiwoom Cash(k): " + cash_account + "\n")
+            f.write("- TrTrade Cash(k): " + cash_trtrading + "\n")
+            f.write('- Return(%): ' + tr_return_rate + "\n")
+            f.write('- #items: ' + str(no_active) + "\n")
+            f.write("- Total invested(k): " + tr_invested_total + "\n")
+            f.write("- Current Value(k): " + tr_cvalue_total + "\n")
+            f.write('- Realized Return Total(k): ' + tr_realized_return_total + "\n")
+            f.write('- Exception List: ' + str(TRENDTRADE_EXCEPT_LIST) + "\n\n")
             f.close()
+            m = open(STATUS_REPORT_MOBILE, 'a')
+            m.write("[TrTrade Summary - " + t + "]" + "\n")
+            m.write("- Kiwoom Cash(k): " + cash_account + "\n")
+            m.write("- TrTrade Cash(k): " + cash_trtrading + "\n")
+            m.write('- Return(%): ' + tr_return_rate + "\n")
+            m.write('- #items: ' + str(no_active) + "\n")
+            m.write("- Total invested(k): " + tr_invested_total + "\n")
+            m.write("- Current Value(k): " + tr_cvalue_total + "\n")
+            m.write('- Realized Return Total(k): ' + tr_realized_return_total + "\n")
+            m.write('- Exception List: ' + str(TRENDTRADE_EXCEPT_LIST) + "\n\n")
+            m.close()
         else: 
-            self.km.trade_log_write("[Trend Trade Summary - " + t + "]")
-            self.km.trade_log_write(" - Kiwoom Cash(k): " + cash_account + ' | TrTrading Cash(k): ' + cash_trtrading)
-            self.km.trade_log_write(' - Return(%): ' + tr_return_rate + ' | #items: ' + str(no_active))
-            self.km.trade_log_write(" - Total invested(k): " + tr_invested_total + ' | Current Value(k): ' + tr_cvalue_total)
-            self.km.trade_log_write(' - Realized Return Total(k): ' + tr_realized_return_total + ' | Exception List: ' + str(TRENDTRADE_EXCEPT_LIST))
+            self.km.trade_log_write("\n[TrTrade Summary - " + t + ']')
+            self.km.trade_log_write("- Kiwoom Cash(k): " + cash_account)
+            self.km.trade_log_write("- TrTrade Cash(k): " + cash_trtrading)
+            self.km.trade_log_write('- Return(%): ' + tr_return_rate)
+            self.km.trade_log_write('- #items: ' + str(no_active))
+            self.km.trade_log_write("- Total invested(k): " + tr_invested_total)
+            self.km.trade_log_write("- Current Value(k): " + tr_cvalue_total)
+            self.km.trade_log_write('- Realized Return Total(k): ' + tr_realized_return_total)
+            self.km.trade_log_write('- Exception List: ' + str(TRENDTRADE_EXCEPT_LIST))
         
 if __name__ == "__main__": 
     app = QApplication(sys.argv)

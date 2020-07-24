@@ -1,0 +1,132 @@
+<!doctype html>
+  <head>
+    <!-- Required meta tags -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="refresh" content="30">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="css/main.css">
+    <link rel="stylesheet" href="css/tagsinput.css" />
+    <link rel="stylesheet" href="trtrader_style.css" />
+    <link rel="icon" href="trtrader_logo.png">
+    <title>TrendTrader</title>
+  </head>
+  <body>
+        <header class="site-header">
+          <nav class="navbar navbar-expand-md navbar-dark bg-steel fixed-top">
+            <div class="container">
+		        <a class="navbar-brand mr-4" href="#">TrendTrader</a>
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggle" aria-controls="navbarToggle" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button><div class="collapse navbar-collapse" id="navbarToggle">
+                <div class="navbar-nav mr-auto">
+                  <a class="nav-item nav-link" href="trtrader_status.html">status report</a>
+                  <a class="nav-item nav-link" href="trade_log.html">trade log</a>
+                  <a class="nav-item nav-link" href="man_trtrader.html">trtrader manual</a>
+                </div>
+              </div>
+            </div>
+          </nav>
+        </header>
+
+        <main role="main" class="container">
+          <div class="row">
+              <div class="col-md-12">
+                  Status report:
+<pre>master_book (last 75 items): 
+  code  inv(k)      nr    rt(%)  DA    name
+------  --------  ----  -------  ----  ----------
+005930  3,000        1      2.6  LA    삼성전자
+326030  2,852        0     -1.2  LA    SK바이오팜
+000660  2,950        0     -0.9  NF    SK하이닉스
+000660  5,904        1     -0.9  RF    SK하이닉스
+122630  2,998        0     -0.9  NF    KODEX
+122630  5,998        1     -0.9  RF    KODEX
+000660  0            1      0    SF    SK하이닉스
+122630  0            1      0    SF    KODEX
+
+trtrade_list (last 75 items): 
+  code    amount  buy_sell    note    name
+------  --------  ----------  ------  --------
+005930        56  sell        failed  삼성전자
+
+[TrTrade Summary - 20200724 18:33:12]
+- Kiwoom Cash(k): 498,124
+- TrTrade Cash(k): 288,094
+- Return(%): 0.73
+- #items: 2
+- Total invested(k): 5,853
+- Current Value(k): 5,896
+- Realized Return Total(k): 0
+- Exception List: []
+
+</pre>
+              </div>
+          </div>
+          <hr>
+          <div class="row">
+              <div class="col-md-12">
+                  Trade log:
+<pre>- #items: 2
+- Total invested(k): 5,853
+- Current Value(k): 5,896
+- Realized Return Total(k): 0
+- Exception List: []
+--- SendOrder Fail: (0)  0724 18:07:10  8135010411 2 005930 56 0 03 
+
+[TrTrade Summary - 20200724 18:07:11]
+- Kiwoom Cash(k): 498,124
+- TrTrade Cash(k): 288,094
+- Return(%): 0.73
+- #items: 2
+- Total invested(k): 5,853
+- Current Value(k): 5,896
+- Realized Return Total(k): 0
+- Exception List: []
+--- SendOrder Fail: (0)  0724 18:21:14  8135010411 2 005930 56 0 03 
+
+[TrTrade Summary - 20200724 18:21:16]
+- Kiwoom Cash(k): 498,124
+- TrTrade Cash(k): 288,094
+- Return(%): 0.73
+- #items: 2
+- Total invested(k): 5,853
+- Current Value(k): 5,896
+- Realized Return Total(k): 0
+- Exception List: []
+--- SendOrder Fail: (0)  0724 18:31:18  8135010411 2 005930 56 0 03 
+--- SendOrder Fail: (0)  0724 18:31:39  8135010411 2 005930 56 0 03 
+
+[TrTrade Summary - 20200724 18:31:40]
+- Kiwoom Cash(k): 498,124
+- TrTrade Cash(k): 288,094
+- Return(%): 0.73
+- #items: 2
+- Total invested(k): 5,853
+- Current Value(k): 5,896
+- Realized Return Total(k): 0
+- Exception List: []
+--- SendOrder Fail: (0)  0724 18:33:09  8135010411 2 005930 56 0 03 
+
+[TrTrade Summary - 20200724 18:33:13]
+- Kiwoom Cash(k): 498,124
+- TrTrade Cash(k): 288,094
+- Return(%): 0.73
+- #items: 2
+- Total invested(k): 5,853
+- Current Value(k): 5,896
+- Realized Return Total(k): 0
+- Exception List: []
+</pre>
+              </div>
+          </div>
+          <hr>
+          <i>content refreshes every 30 seconds</i>
+        </main>
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+  </body>
+</html>

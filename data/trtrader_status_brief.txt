@@ -1,0 +1,27 @@
+master_book (last 75 items): 
+  code  inv(k)      nr    rt(%)  DA    name
+------  --------  ----  -------  ----  ----------
+005930  3,000        1      2.6  LA    삼성전자
+326030  2,852        0     -1.2  LA    SK바이오팜
+000660  2,950        0     -0.9  NF    SK하이닉스
+000660  5,904        1     -0.9  RF    SK하이닉스
+122630  2,998        0     -0.9  NF    KODEX
+122630  5,998        1     -0.9  RF    KODEX
+000660  0            1      0    SF    SK하이닉스
+122630  0            1      0    SF    KODEX
+
+trtrade_list (last 75 items): 
+  code    amount  buy_sell    note    name
+------  --------  ----------  ------  --------
+005930        56  sell        failed  삼성전자
+
+[TrTrade Summary - 20200724 18:33:12]
+- Kiwoom Cash(k): 498,124
+- TrTrade Cash(k): 288,094
+- Return(%): 0.73
+- #items: 2
+- Total invested(k): 5,853
+- Current Value(k): 5,896
+- Realized Return Total(k): 0
+- Exception List: []
+
