@@ -7,7 +7,7 @@ import json
 ################################################################################################
 MASTER_BOOK_FILE = 'data/master_book.xlsx'
 MASTER_BOOK_BACKUP_FILE = 'data/backup/master_book.xlsx'
-BOUNDS_FILE = 'data/bounds.xlsx'
+BOUNDS_FILE = 'bounds.xlsx'
 EXTERNAL_LIST_FILE = 'data/external_list.xlsx'
 EXTERNAL_LIST_BACKUP_FILE = 'data/backup/external_list.xlsx'
 EXTERNAL_CRD_FILE = 'trtrader.crd'
