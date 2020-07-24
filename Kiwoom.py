@@ -5,9 +5,11 @@ import time
 import pandas as pd
 from tabulate import tabulate 
 
+################################################################################################
 WORKING_DIR_PATH = 'C:/Users/user/Projects/trendtrading/'
 TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
 API_REQ_TIME_INTERVAL = 0.3 # min: 0.2
+################################################################################################
 
 class Kiwoom(QAxWidget):
     def __init__(self):

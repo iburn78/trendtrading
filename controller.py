@@ -4,15 +4,16 @@ from datetime import datetime, time as dtime
 import time 
 import schedule
 
+################################################################################################
 HOLIDAYS_2020 = ['20200930', '20201001', '20201002', '20201009', '20201225']
 HOLIDAYS = list(map(lambda x: datetime.strptime(x, '%Y%m%d').date(), HOLIDAYS_2020))
-
+################################################################################################
 VERSION_CHK_TIME = "08:00"
 TRTRADE_RUN_TIME = "09:10"
 TRTRADE_FIN_TIME = "15:20"
 TRTRADE_RUN_INTERVAL = 10 # second
 RUN_PENDING_INTERVAL = 10
-
+################################################################################################
 MKT_OPEN_TIME = TRTRADE_RUN_DTIME = dtime.fromisoformat(TRTRADE_RUN_TIME)
 MKT_CLOSE_TIME = TRTRADE_FIN_DTIME = dtime.fromisoformat(TRTRADE_FIN_TIME)
 VERSION_CHECK_MSG = 'VERSION CHECK FINISHED'

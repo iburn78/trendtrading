@@ -4,6 +4,7 @@ import xlsxwriter
 import random
 import json
 
+################################################################################################
 MASTER_BOOK_FILE = 'data/master_book.xlsx'
 MASTER_BOOK_BACKUP_FILE = 'data/backup/master_book.xlsx'
 BOUNDS_FILE = 'data/bounds.xlsx'
@@ -12,22 +13,15 @@ EXTERNAL_LIST_BACKUP_FILE = 'data/backup/external_list.xlsx'
 EXTERNAL_CRD_FILE = 'trtrader.crd'
 STATUS_REPORT_FILE = 'data/trtrader_status.txt'
 STATUS_REPORT_MOBILE = 'data/trtrader_status_brief.txt'
-# RUN_WAIT_INTERVAL = 30*60 
-
+################################################################################################
 START_CASH = 300000000
 TICKET_SIZE = 3000000       # Target amount to be purchased in KRW
-MIN_CASH_FOR_PURCHASE_RATE = 1.5
-MIN_CASH_FOR_PURCHASE = TICKET_SIZE*MIN_CASH_FOR_PURCHASE_RATE
-with open(WORKING_DIR_PATH+EXTERNAL_CRD_FILE) as f:
-    crd = json.load(f)
-    ACCOUNT_NO = crd['ACCOUNT_NO'] # '8135010411' # may create master_book for each account_no
-MAX_REINVESTMENT = 4        # total 5 investments max
-MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is modified
+
 # FEE_RATE = 0.00015        # real FEE_RATE
 # TAX_RATE = 0.003          # real TAX_RATE (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products)
 FEE_RATE = 0.0035           # for simulation
 TAX_RATE = 0.0025           # for simulation (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
-
+################################################################################################
 CREATE_NEW_MASTER_BOOK = False # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
                                # Note: refer to the note below TRENDTRADE_EXCEPT_LIST
                                # Or, you may leave this as False, and simply delete the existing master book file / or manually move the file to 
@@ -39,22 +33,29 @@ TRENDTRADE_EXCEPT_LIST = []
                               # Otherwise, integrity checker could fail (i.e., if you already have the stock in the EXC-LIST in the master_book, 
                               # checker will raise error as the master book has a stock in the EXC-LIST. However, if the master book does not have the stock, 
                               # there will be no error raised.)
+################################################################################################
+MIN_CASH_FOR_PURCHASE_RATE = 1.5
+MIN_CASH_FOR_PURCHASE = TICKET_SIZE*MIN_CASH_FOR_PURCHASE_RATE
+with open(WORKING_DIR_PATH+EXTERNAL_CRD_FILE) as f:
+    crd = json.load(f)
+    ACCOUNT_NO = crd['ACCOUNT_NO'] # '8135010411' # may create master_book for each account_no
+MAX_REINVESTMENT = 4        # total 5 investments max
+MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is modified
 
 # items in dec_made: new_ent (new_ent), reinv (reinvested), a_sold (a_sold), p_sold (partial_sold), 
 #                    SUSPEND (LLB_suspend), released (suspend_release), bd_elev (bound_elevated), loaded, EXCEPT (loading_exception)
 ABRIDGED_DICT = {'new_ent':  'N', 'reinv': 'R', 'a_sold': 'S', 'p_sold': 'P', 'SUSPEND': 'U', 'released': 'A', 'bd_elev': 'B', 'loaded': 'L', 'EXCEPT': 'E'}
-#
+
 # Note: 
 # - External list is loaded and added to trtrade_list, and erased (moved to backup/) when Python code starts 
 # - All 'yet' item in trtrade_list are tried only once
 # - Trtrade_list is lost when Python code finishes  
 # - Therefore, external list could lost without any successful execution if the Python code runs/finishes during out of market open time
 # - So, be careful not to lose external_list items 
-# (YOU MAY IMPROVE IF NEEDED - NOT TO AUTOMATICALLY LOSE EXTERNAL ITMES)
+# (THIS MAY NEED TO BE IMPROVED - NOT TO AUTOMATICALLY LOSE EXTERNAL ITMES)
 # 
 # - On the other hand, automatically generated items in trtrade_list by trendtrading_mainlogic are safe to lose as long as CREATE_NEW_MASTER_BOOK == False, 
 #   as they will be re-created when trendtrading_mainlogic is re-run
-
 
 
 class TrTrader(): 
@@ -65,7 +66,7 @@ class TrTrader():
         self.bounds_prep()
         self.prev_mbf_exists = os.path.exists(MASTER_BOOK_FILE)
         self.master_book_initiator(START_CASH, replace = CREATE_NEW_MASTER_BOOK)
-        # self.master_book_integrity_checker()
+        self.master_book_integrity_checker()
         self.trtrade_list = pd.DataFrame(columns = ['code', 'amount', 'buy_sell', 'note'])
     
     def close_(self):

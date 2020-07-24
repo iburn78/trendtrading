@@ -8,7 +8,9 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters # For datetime series converting.... 
 
+################################################################################################
 RESET_EXTLIST_ON_INITIATION = False # i.e., ignoring existing file if True
+################################################################################################
 
 # THIS LIST GEN TO BE RUN INDEPENDENTLY FROM TRTRADER
 # If 'amount' is set to zero, 'amount' will be set to the actual holding quantity under 'sell' and set to TICKET_SIZE under 'buy'
@@ -28,8 +30,6 @@ RESET_EXTLIST_ON_INITIATION = False # i.e., ignoring existing file if True
 # Be careful when adding items to EXTLIST, especially duplicated items: 
 # when buying, duplicated items will lead to multiple buying and increased number of reinvestment, and it could result in an immediate selling as LB gets higher
 # when selling, second or later selling could be ignored if there is no remaining shares
-
-
 
 class ExtListGen():
     def __init__(self):
