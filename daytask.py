@@ -27,8 +27,11 @@ else:
             if datetime.now().time() > MKT_OPEN_TIME and datetime.now().time() < MKT_CLOSE_TIME: 
                 if datetime.now().date().weekday() in [0, 1, 2, 3, 4] and datetime.now().date() not in HOLIDAYS:
                     trtrader.run_()
+                else:
+                    print("Market Closed Day")
+                    break
             if datetime.now().time() > MKT_CLOSE_TIME: 
-                print("Market Closed")
+                print("Market Closed Time")
                 break
             time.sleep(TRTRADE_RUN_INTERVAL)
         except KeyboardInterrupt:

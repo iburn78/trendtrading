@@ -91,6 +91,10 @@ Key components of the TrendTrader (trtrading):
     - Dictionary for dec_made
         - ABRIDGED_DICT = {'new_ent':  'N', 'reinv': 'R', 'a_sold': 'S', 'p_sold': 'P', 'SUSPEND': 'U', 'released': 'A', 'bd_elev': 'B', 'loaded': 'L', 'EXCEPT': 'E'}
 
+- External command
+    - TrTrader can be controlled through external command: suspend, resume, stop
+    - Detailed comments are provided in the code
+
 ## extlistgen
 - generates an excel file to be loaded by trtrader which contains a list of orders to be executed by the Kiwoom API trade_stocks function
 - trtrader adjusts each order according to the following rules: 

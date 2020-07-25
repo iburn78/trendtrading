@@ -3,6 +3,9 @@ from Kiwoom import *
 import xlsxwriter
 import random
 import json
+import urllib.request
+from bs4 import BeautifulSoup
+from datetime import datetime
 
 ################################################################################################
 MASTER_BOOK_FILE = 'data/master_book.xlsx'
@@ -10,9 +13,9 @@ MASTER_BOOK_BACKUP_FILE = 'data/backup/master_book.xlsx'
 BOUNDS_FILE = 'bounds.xlsx'
 EXTERNAL_LIST_FILE = 'data/external_list.xlsx'
 EXTERNAL_LIST_BACKUP_FILE = 'data/backup/external_list.xlsx'
-EXTERNAL_CRD_FILE = 'trtrader.crd'
 STATUS_REPORT_FILE = 'data/trtrader_status.txt'
 STATUS_REPORT_MOBILE = 'data/trtrader_status_brief.txt'
+EXTERNAL_COMMAND_URL = "http://13.209.99.197/command.html"
 ################################################################################################
 START_CASH = 300000000
 TICKET_SIZE = 3000000       # Target amount to be purchased in KRW
@@ -22,23 +25,34 @@ TICKET_SIZE = 3000000       # Target amount to be purchased in KRW
 FEE_RATE = 0.0035           # for simulation
 TAX_RATE = 0.0025           # for simulation (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
 ################################################################################################
-CREATE_NEW_MASTER_BOOK = False # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
-                               # Note: refer to the note below TRENDTRADE_EXCEPT_LIST
-                               # Or, you may leave this as False, and simply delete the existing master book file / or manually move the file to 
-                               # back-up folder with filename change 
+CREATE_NEW_MASTER_BOOK = False  # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
+                                # Note: refer to the note below TRENDTRADE_EXCEPT_LIST
+                                # Or, you may leave this as False, and simply delete the existing master book file / or manually move the file to 
+                                # back-up folder with filename change 
 TRENDTRADE_EXCEPT_LIST = []
-                              # Codes in this list are not loaded into master_book (regardless whether you actually have this stock or not in the account)
-                              # Note: When adding to or subtract from TRENDTRADE_EXCEPT_LIST, CREATE_NEW_MASTER_BOOK should be set to True, or 
-                              # the master book should be newly created (e.g., there should be no previous master book excel file, so that it can be created) 
-                              # Otherwise, integrity checker could fail (i.e., if you already have the stock in the EXC-LIST in the master_book, 
-                              # checker will raise error as the master book has a stock in the EXC-LIST. However, if the master book does not have the stock, 
-                              # there will be no error raised.)
+                                # Codes in this list are not loaded into master_book (regardless whether you actually have this stock or not in the account)
+                                # Note: When adding to or subtract from TRENDTRADE_EXCEPT_LIST, CREATE_NEW_MASTER_BOOK should be set to True, or 
+                                # the master book should be newly created (e.g., there should be no previous master book excel file, so that it can be created) 
+                                # Otherwise, integrity checker could fail (i.e., if you already have the stock in the EXC-LIST in the master_book, 
+                                # checker will raise error as the master book has a stock in the EXC-LIST. However, if the master book does not have the stock, 
+                                # there will be no error raised.)
+EXTERNAL_COMMAND_LIST = ['suspend', 'resume', 'stop']
+                                # Only the first and the second lines matter in the external command file
+                                # Only when the command input time is later than the current trtrader initiation time or last execution time, the command will be accepted
+                                # - External commands only works for an already running trtrader 
+                                #  (However, future time can be set if you want to enforce the command)
+                                # - You can only suspend or stop for a running trtrader
+                                # - For a suspended trtrader, you can resume or stop
+                                # Format:
+                                # YYYYMMDD HH:MM:SS
+                                # one_word_command
+                                # (other lines are ignored)
 ################################################################################################
 MIN_CASH_FOR_PURCHASE_RATE = 1.5
 MIN_CASH_FOR_PURCHASE = TICKET_SIZE*MIN_CASH_FOR_PURCHASE_RATE
-with open(WORKING_DIR_PATH+EXTERNAL_CRD_FILE) as f:
-    crd = json.load(f)
-    ACCOUNT_NO = crd['ACCOUNT_NO'] # '8135010411' # may create master_book for each account_no
+with open(WORKING_DIR_PATH+TRTRADER_SETTINGS_FILE) as f:
+    tsf = json.load(f)
+    ACCOUNT_NO = tsf['ACCOUNT_NO'] 
 MAX_REINVESTMENT = 4        # total 5 investments max
 MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is modified
 
@@ -60,6 +74,7 @@ ABRIDGED_DICT = {'new_ent':  'N', 'reinv': 'R', 'a_sold': 'S', 'p_sold': 'P', 'S
 
 class TrTrader(): 
     def __init__(self):
+        self.ext_command_last_excution_time_ = datetime.now() # last execution set to __init__ time initiation 
         self.km = Kiwoom()
         if not self.km.connect_status: 
             sys.exit("System Exit")
@@ -68,6 +83,7 @@ class TrTrader():
         self.master_book_initiator(START_CASH, replace = CREATE_NEW_MASTER_BOOK)
         self.master_book_integrity_checker()
         self.trtrade_list = pd.DataFrame(columns = ['code', 'amount', 'buy_sell', 'note'])
+        self.execute_external_command()
     
     def close_(self):
         self.write_master_book_to_Excel(self.master_book)
@@ -520,6 +536,59 @@ class TrTrader():
             return 1+FEE_RATE # when buying, you pay additional cash for fee
         else: # buy_sell == 'sell':
             return 1-(FEE_RATE + TAX_RATE) # when selling, your cash is dedcuted by tax and fee
+
+    def execute_external_command(self):
+        [command_time, ext_command] = self.read_external_command()
+        if ext_command != '':
+            self.km.trade_log_write('External command ['+ext_command+'] recognized at time: '
+                + self.ext_command_last_excution_time_.strftime("%Y%m%d %H:%M:%S")+' (command created at: '+command_time+')')
+            if ext_command == 'suspend':
+                self.km.trade_log_write("*****************************************************")
+                self.km.trade_log_write("PROCESS SUSPENDED PER THE EXTERNAL COMMAND: [suspend]")
+                self.km.trade_log_write("*****************************************************")
+                while 1: 
+                    print("System suspended - waiting for 30 seconds")
+                    time.sleep(30)
+                    [command_time, ext_command] = self.read_external_command()
+                    if ext_command == 'resume':
+                        self.km.trade_log_write('External command ['+ext_command+'] recognized at time: '
+                            + self.ext_command_last_excution_time_.strftime("%Y%m%d %H:%M:%S")+' (command created at: '+command_time+')')
+                        self.km.trade_log_write("*****************************************************")
+                        self.km.trade_log_write("PROCESS RESUMED PER THE EXTERNAL COMMAND: [resume]")
+                        self.km.trade_log_write("*****************************************************")
+                        break
+                    elif ext_command == 'stop':
+                        self.km.trade_log_write('External command ['+ext_command+'] recognized at time: '
+                            + self.ext_command_last_excution_time_.strftime("%Y%m%d %H:%M:%S")+' (command created at: '+command_time+')')
+                        break
+            elif ext_command == 'resume':
+                print("[resume] command not executed in suspend status is ignored")
+
+            if ext_command == 'stop':
+                self.km.trade_log_write("*****************************************************")
+                self.km.trade_log_write("PROCESS EXITS PER THE EXTERNAL COMMAND: [stop]")
+                self.km.trade_log_write("*****************************************************")
+                sys.exit("System exits")
+
+    def read_external_command(self):
+        try:
+            html = urllib.request.urlopen(EXTERNAL_COMMAND_URL).read()
+            soup = BeautifulSoup(html, features='lxml')
+            text = soup.get_text()
+            lines = [line.strip() for line in text.splitlines()]   
+            command_time = datetime.strptime(lines[0], "%Y%m%d %H:%M:%S")
+            ext_command = lines[1]
+            if command_time > self.ext_command_last_excution_time_:
+                # only if command time is later than init time or last execution time, the command will be executed
+                if ext_command in EXTERNAL_COMMAND_LIST:
+                    self.ext_command_last_excution_time_ = datetime.now()
+                    return [lines[0], ext_command]
+            return ['', '']
+        except Exception as e: 
+            print("Error in read_external_command - ignored: ", e)
+            return ['', '']
+            # Any kinds of errors are ignored
+        
 
     def status_print(self, to_file = False):
         mb_print = self.master_book.copy()

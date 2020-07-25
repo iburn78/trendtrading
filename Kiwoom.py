@@ -4,12 +4,16 @@ from PyQt5.QtCore import *
 import time
 import pandas as pd
 from tabulate import tabulate 
+import json
 
 ################################################################################################
-WORKING_DIR_PATH = 'C:/Users/user/Projects/trendtrading/'
-TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
+TRTRADER_SETTINGS_FILE = 'trtrader_settings.dat'
 API_REQ_TIME_INTERVAL = 0.3 # min: 0.2
 ################################################################################################
+with open(TRTRADER_SETTINGS_FILE) as f:
+    tsf = json.load(f)
+    WORKING_DIR_PATH = tsf['WORKDING_DIR'] 
+TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
 
 class Kiwoom(QAxWidget):
     def __init__(self):

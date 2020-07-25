@@ -9,8 +9,8 @@ HOLIDAYS_2020 = ['20200930', '20201001', '20201002', '20201009', '20201225']
 HOLIDAYS = list(map(lambda x: datetime.strptime(x, '%Y%m%d').date(), HOLIDAYS_2020))
 ################################################################################################
 VERSION_CHK_TIME = "08:00"
-TRTRADE_RUN_TIME = "09:10"
-TRTRADE_FIN_TIME = "15:20"
+TRTRADE_RUN_TIME = "09:20"
+TRTRADE_FIN_TIME = "15:10"
 TRTRADE_RUN_INTERVAL = 10 # second
 RUN_PENDING_INTERVAL = 10
 ################################################################################################
