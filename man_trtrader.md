@@ -1,13 +1,12 @@
 # TrendTrader Manual - Version 0.1 
 
-As of 2020-07-19
+As of 2020-07-26
 
 ## Overview of the structure
 
 Key components of the TrendTrader (trtrading):
 
 - **controller**: defines a schedule to check the version of Kiwoom API and to run the trtrader (mainly to cope with Kiwoom's infrequent API updates while automating trtrader as much as possible)
-- **daytask**: provides codes for controller to run for version checking and trtrader running
 - **Kiwoom**: defines functions for utilizing Kiwoom API 
 - **trtrader**: defines trtrader main DB (master_book) and main logic
 - **extlistgen**: provides a buy-and-sell list of stocks that is created externally from the trtrader 
@@ -16,17 +15,12 @@ Key components of the TrendTrader (trtrading):
 ## controller
 - Main tasks of controller are to run Kiwoom API before the market open time for version check, and to keep running trtrader while the market is open
 - Running sequence: 
-    - if executed before the version check time, controller will run Kiwoom API and connect to the Kiwoom server at the version check time (by executing daytask); if the version check is unsuccessful, controller exits with an error
-    - if executed after the version check time and before the market open time, controller will run trtrader (by executing daytask) at the trtrader run time (e.g., market open time)
-    - if executed after the market open time, controller will run trtrader (by executing daytask) immediately if the current time is before the market close time
-    - a single trtrader run (or a single daytask run) will finish once the market closes (or when version check is done)
-    - at each day's market close, controller will be in a wait mode for until the next day's version check time, and the daily routine continues
-- controller uses os.system("python daytask.py"), which might not be the recommended way to run a nested python code. However, Kiwoom API seems not properly finishes under other methods (e.g. by creating a Kiwoom API object and remove/delete the object would not result in the clean removal of Kiwoom API), and then it is not likely possible to automate the trtrader running (with proper version check)
-
-## daytask
-- runs Kiwoom API by creating a Kiwoom instance if the run time is before the version check time defined in controller
-- runs trtrader by creating a trtrader instance during the market open time
-- checks holidays as defined in controller
+    - if executed before the version check time, controller will run Kiwoom API and connect to the Kiwoom server at the version check time (by using multiprocessing); if the version check is unsuccessful, controller exits with an error (if option is set so)
+    - if executed after the version check time and before the market open time, controller will run trtrader (by using multiprocessing) at the trtrader run time (that is market open time for trtrader)
+    - if executed after the trtrader run time, controller will run trtrader immediately if the current time is before the market close time
+    - a single trtrader run will finish once the market closes 
+    - at each day's market close, controller will be in a wait mode for until the next day's version check time, and the daily routine repeats
+- controller uses multiprocessing module to cope with Kiwoom API version check (if not using multiprocessing, Kiwoom API is not unloaded properly after each execution)
 
 ## Kiwoom
 - Functions related with Kiwoom API are implemented (refer to Slack autotrading section for description or the original book on wikidocs.net)

@@ -1,48 +1,103 @@
 from Kiwoom import *
 from trtrader import *
-from datetime import datetime, time as dtime
+from datetime import datetime, timedelta, time as dtime
 import time 
 import schedule
+import multiprocessing 
 
 ################################################################################################
 HOLIDAYS_2020 = ['20200930', '20201001', '20201002', '20201009', '20201225']
 HOLIDAYS = list(map(lambda x: datetime.strptime(x, '%Y%m%d').date(), HOLIDAYS_2020))
 ################################################################################################
-VERSION_CHK_TIME = "08:00"
-TRTRADE_RUN_TIME = "09:20"
-TRTRADE_FIN_TIME = "15:10"
+# VERSION_CHK_TIME = "08:00"
+# TRTRADE_RUN_TIME = "09:15"
+# TRTRADE_FIN_TIME = "15:15"
+VERSION_CHK_TIME = (datetime.now() + timedelta(seconds = 10)).strftime("%H:%M:%S") 
+TRTRADE_RUN_TIME = (datetime.now() + timedelta(minutes = 0.5)).strftime("%H:%M:%S") 
+TRTRADE_FIN_TIME = (datetime.now() + timedelta(minutes = 1)).strftime("%H:%M:%S") 
 TRTRADE_RUN_INTERVAL = 10 # second
 RUN_PENDING_INTERVAL = 10
 ################################################################################################
-MKT_OPEN_TIME = TRTRADE_RUN_DTIME = dtime.fromisoformat(TRTRADE_RUN_TIME)
-MKT_CLOSE_TIME = TRTRADE_FIN_DTIME = dtime.fromisoformat(TRTRADE_FIN_TIME)
-VERSION_CHECK_MSG = 'VERSION CHECK FINISHED'
+TRTRADE_RUN_DTIME = dtime.fromisoformat(TRTRADE_RUN_TIME)
+TRTRADE_FIN_DTIME = dtime.fromisoformat(TRTRADE_FIN_TIME)
+################################################################################################
+MAX_VERSION_CHECK_TIME = 2*60
+VERCHECK_SUCCESS_LOOP_INTERVAL = 5
+WORKING_DAY_DEFINITION = [0, 1, 2, 3, 4, 5, 6]  # starts from MON... 
+SYS_EXIT_ON_VERSION_CHECK_FAILURE = False
 
 class Controller():
     def __init__(self): 
-        schedule.every().day.at(VERSION_CHK_TIME).do(self.run_)
+        schedule.every().day.at(VERSION_CHK_TIME).do(self.run_verchecker)
         schedule.every().day.at(TRTRADE_RUN_TIME).do(self.run_)
+
         if datetime.now().time() > TRTRADE_RUN_DTIME and datetime.now().time() < TRTRADE_FIN_DTIME:
-            self.run_()
+            print("Controller executed during trtrade run time - trtrader runs (API version check skipped)")
+            self.run_()  
+        
         while 1: 
-            schedule.run_pending()
-            print('.', end='')
-            time.sleep(RUN_PENDING_INTERVAL)
+            try:
+                schedule.run_pending()
+                print('.', end='')
+                time.sleep(RUN_PENDING_INTERVAL)
+            except KeyboardInterrupt:
+                sys.exit("\nKeyboardInterrupt at controller")
 
-    def run_(self): 
-        print("\nController run: ", time.strftime("%Y/%m/%d %H:%M:%S"))
-        try: 
-            os.system("python daytask.py")
-        except KeyboardInterrupt:
-            print("Keyboard interrupt detected within os.system/daytask.py")
-        if datetime.now().time() < TRTRADE_RUN_DTIME: 
-            with open(TRADE_LOG_FILE) as f: 
-                msg = f.read()
-                if msg[-23:-1] == VERSION_CHECK_MSG:
-                    print("Version check success ", time.strftime("%Y/%m/%d %H:%M:%S"))
-                else:
-                    sys.exit("Kiwoom API Version Update Fail")
+    # uses multiprocessing for clean termination
+    def run_verchecker(self): 
+        con_stat = multiprocessing.Value('i', 0)
+        vercheck_proc = multiprocessing.Process(target=self.version_check_func, args=(con_stat,), daemon=True) 
+        print("\nVersion checker runs at "+ time.strftime("%Y/%m/%d %H:%M:%S"))
+        vercheck_proc.start()
+        t_end = time.time() + MAX_VERSION_CHECK_TIME
+        while time.time() < t_end: 
+            if con_stat.value == 1:
+                print("Version check successful")
+                vercheck_proc.terminate()
+                return
+            time.sleep(VERCHECK_SUCCESS_LOOP_INTERVAL)
+        print("Version check FAILED --- NEED ATTENTION")
+        vercheck_proc.terminate()
+        if SYS_EXIT_ON_VERSION_CHECK_FAILURE: 
+            sys.exit("System Exits...")
+        else: 
+            print("Trtrader controller continues...")
+        return
 
+    def version_check_func(self, con_stat):
+        app = QApplication([''])
+        km = Kiwoom()
+        if km.connect_status == True: 
+            con_stat.value = 1
+        del km
+        app.quit()
+
+    # uses multiprocessing for clean termination
+    def run_(self):
+        if datetime.now().date().weekday() in WORKING_DAY_DEFINITION and datetime.now().date() not in HOLIDAYS:
+            main_proc = multiprocessing.Process(target=self.main_routine_func, daemon=True)
+            print("\nTrTrader runs at "+ time.strftime("%Y/%m/%d %H:%M:%S"))
+            main_proc.start()
+            # next whlie statement is for waiting until main proc finishes
+            while main_proc.is_alive(): 
+                time.sleep(RUN_PENDING_INTERVAL)
+        else: 
+            print("\nNot a market open day - continues to controller loop")
+    
+    def main_routine_func(self):
+        app = QApplication([''])
+        trtrader = TrTrader()
+        while datetime.now().time() < TRTRADE_FIN_DTIME:
+            try: # try-except for trtrader to close properly when keyboard interrupt occurs
+                trtrader.run_()
+                time.sleep(TRTRADE_RUN_INTERVAL)
+            except KeyboardInterrupt: 
+                print("Keyboard Interrupt Detected")
+                break
+        print("TrTrader finishes at TRTRADE_FIN_DTIME, current time: "+time.strftime("%Y/%m/%d %H:%M:%S"))
+        trtrader.close_()
+        del trtrader
+        app.quit()
 
     def master_book_visualize(self): 
         print(self.trtrader.master_book)

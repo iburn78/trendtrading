@@ -315,6 +315,11 @@ class Kiwoom(QAxWidget):
         self.comm_rq_data('opw00001_req', 'opw00001', 0, '2000')
         return self.d2_deposit
 
+if __name__ == "__main__":
+    app = QApplication([''])
+    km = Kiwoom()
+    del km
+    app.quit()
 
 
 ########## USAGE OF KIWOOM CLASS ##########
