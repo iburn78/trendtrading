@@ -11,15 +11,19 @@ try:
     tsr_brief = ts_brief.read()
     ts_brief.close()
 
-    tl_brief = open('data/trade_log_brief.txt', 'r')
-    tlr_brief = tl_brief.read()
+    tl_brief = open('data/trade_log.txt', 'r') # need to reread
+    tlr_brief_line = tl_brief.readlines()[-50:]
     tl_brief.close()
+
+    tlr_brief = ''
+    for i in range(len(tlr_brief_line)):
+        tlr_brief += str(tlr_brief_line[i])
 
 except Exception as e: 
     tsr = ''
     tlr = ''
     tsr_brief = ''
-    tlr_brief = ''
+    # tlr_brief = ''
     print(e)
 
 index_html = ''

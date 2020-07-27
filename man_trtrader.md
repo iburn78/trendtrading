@@ -86,7 +86,7 @@ Key components of the TrendTrader (trtrading):
         - ABRIDGED_DICT = {'new_ent':  'N', 'reinv': 'R', 'a_sold': 'S', 'p_sold': 'P', 'SUSPEND': 'U', 'released': 'A', 'bd_elev': 'B', 'loaded': 'L', 'EXCEPT': 'E'}
 
 - External command
-    - TrTrader can be controlled through external command: suspend, resume, stop
+    - TrTrader can be controlled through external command: suspend, resume, stop, ping
     - Detailed comments are provided in the code
 
 ## extlistgen
