@@ -9,12 +9,12 @@ import multiprocessing
 HOLIDAYS_2020 = ['20200930', '20201001', '20201002', '20201009', '20201225']
 HOLIDAYS = list(map(lambda x: datetime.strptime(x, '%Y%m%d').date(), HOLIDAYS_2020))
 ################################################################################################
-# VERSION_CHK_TIME = "08:00"
-# TRTRADE_RUN_TIME = "09:15"
-# TRTRADE_FIN_TIME = "15:15"
-VERSION_CHK_TIME = (datetime.now() + timedelta(seconds = 10)).strftime("%H:%M:%S") 
-TRTRADE_RUN_TIME = (datetime.now() + timedelta(minutes = 0.5)).strftime("%H:%M:%S") 
-TRTRADE_FIN_TIME = (datetime.now() + timedelta(minutes = 1)).strftime("%H:%M:%S") 
+VERSION_CHK_TIME = "08:00"
+TRTRADE_RUN_TIME = "09:15"
+TRTRADE_FIN_TIME = "15:15"
+# VERSION_CHK_TIME = (datetime.now() + timedelta(seconds = 10)).strftime("%H:%M:%S") 
+# TRTRADE_RUN_TIME = (datetime.now() + timedelta(minutes = 0.5)).strftime("%H:%M:%S") 
+# TRTRADE_FIN_TIME = (datetime.now() + timedelta(minutes = 3)).strftime("%H:%M:%S") 
 TRTRADE_RUN_INTERVAL = 10 # second
 RUN_PENDING_INTERVAL = 10
 ################################################################################################
@@ -38,16 +38,17 @@ class Controller():
         while 1: 
             try:
                 schedule.run_pending()
-                print('.', end='')
                 time.sleep(RUN_PENDING_INTERVAL)
+                print(time.strftime("c%M:%S"), end="\r")
+                # print('.', end='')
             except KeyboardInterrupt:
-                sys.exit("\nKeyboardInterrupt at controller")
+                sys.exit("Keyboard Interrupt at controller main loop")
 
     # uses multiprocessing for clean termination
     def run_verchecker(self): 
         con_stat = multiprocessing.Value('i', 0)
         vercheck_proc = multiprocessing.Process(target=self.version_check_func, args=(con_stat,), daemon=True) 
-        print("\nVersion checker runs at "+ time.strftime("%Y/%m/%d %H:%M:%S"))
+        print("Version checker runs at "+ time.strftime("%Y/%m/%d %H:%M:%S"))
         vercheck_proc.start()
         t_end = time.time() + MAX_VERSION_CHECK_TIME
         while time.time() < t_end: 
@@ -59,7 +60,7 @@ class Controller():
         print("Version check FAILED --- NEED ATTENTION")
         vercheck_proc.terminate()
         if SYS_EXIT_ON_VERSION_CHECK_FAILURE: 
-            sys.exit("System Exits...")
+            sys.exit("TrTrader exits...")
         else: 
             print("Trtrader controller continues...")
         return
@@ -74,15 +75,18 @@ class Controller():
 
     # uses multiprocessing for clean termination
     def run_(self):
-        if datetime.now().date().weekday() in WORKING_DAY_DEFINITION and datetime.now().date() not in HOLIDAYS:
-            main_proc = multiprocessing.Process(target=self.main_routine_func, daemon=True)
-            print("\nTrTrader runs at "+ time.strftime("%Y/%m/%d %H:%M:%S"))
-            main_proc.start()
-            # next whlie statement is for waiting until main proc finishes
-            while main_proc.is_alive(): 
-                time.sleep(RUN_PENDING_INTERVAL)
-        else: 
-            print("\nNot a market open day - continues to controller loop")
+        try:
+            if datetime.now().date().weekday() in WORKING_DAY_DEFINITION and datetime.now().date() not in HOLIDAYS:
+                main_proc = multiprocessing.Process(target=self.main_routine_func, daemon=True)
+                print("TrTrader runs at "+ time.strftime("%Y/%m/%d %H:%M:%S"))
+                main_proc.start()
+                # next whlie statement is for waiting until main proc finishes
+                while main_proc.is_alive(): 
+                    time.sleep(RUN_PENDING_INTERVAL)
+            else: 
+                print("Not a market open day - continues to controller loop")
+        except KeyboardInterrupt: 
+            print("Keyboard Interrupt Detected at run_ of controller\n", end = '')
     
     def main_routine_func(self):
         app = QApplication([''])
@@ -92,7 +96,7 @@ class Controller():
                 trtrader.run_()
                 time.sleep(TRTRADE_RUN_INTERVAL)
             except KeyboardInterrupt: 
-                print("Keyboard Interrupt Detected")
+                print("Keyboard Interrupt Detected at main_routine_func of controller\n", end = '')
                 break
         print("TrTrader finishes at TRTRADE_FIN_DTIME, current time: "+time.strftime("%Y/%m/%d %H:%M:%S"))
         trtrader.close_()

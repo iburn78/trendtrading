@@ -36,13 +36,15 @@ TRENDTRADE_EXCEPT_LIST = []
                                 # Otherwise, integrity checker could fail (i.e., if you already have the stock in the EXC-LIST in the master_book, 
                                 # checker will raise error as the master book has a stock in the EXC-LIST. However, if the master book does not have the stock, 
                                 # there will be no error raised.)
-EXTERNAL_COMMAND_LIST = ['suspend', 'resume', 'stop']
+EXTERNAL_COMMAND_LIST = ['suspend', 'resume', 'stop', 'ping']
                                 # Only the first and the second lines matter in the external command file
                                 # Only when the command input time is later than the current trtrader initiation time or last execution time, the command will be accepted
                                 # - External commands only works for an already running trtrader 
-                                #  (However, future time can be set if you want to enforce the command)
+                                # - However, future time can be set if you want to enforce the command
                                 # - You can only suspend or stop for a running trtrader
                                 # - For a suspended trtrader, you can resume or stop
+                                # - Although you stop a trtrader, controller could continue running as trtrader run by a multiprocess
+                                # - For ping, prints whether trtrader is active or not (not about controller)
                                 # Format:
                                 # YYYYMMDD HH:MM:SS
                                 # one_word_command
@@ -83,7 +85,6 @@ class TrTrader():
         self.master_book_initiator(START_CASH, replace = CREATE_NEW_MASTER_BOOK)
         self.master_book_integrity_checker()
         self.trtrade_list = pd.DataFrame(columns = ['code', 'amount', 'buy_sell', 'note'])
-        self.execute_external_command()
     
     def close_(self):
         self.write_master_book_to_Excel(self.master_book)
@@ -95,10 +96,11 @@ class TrTrader():
     #     print("TrTrader object deleted")
 
     def run_(self):
+        self.execute_external_command()
         cash = self.trendtrading_mainlogic() # returns cash amount if all trtrade_list buy_sells are executed
         self.load_external_list(cash)
         if len(self.trtrade_list.loc[self.trtrade_list['note']=='yet']) == 0: 
-            print("trtrade list empty")
+            print(time.strftime("t%M:%S"), end="\r")
         else: 
             self.trade_stocks()
         self.status_print(to_file = True)
@@ -547,7 +549,7 @@ class TrTrader():
                 self.km.trade_log_write("PROCESS SUSPENDED PER THE EXTERNAL COMMAND: [suspend]")
                 self.km.trade_log_write("*****************************************************")
                 while 1: 
-                    print("System suspended - waiting for 30 seconds")
+                    print("System suspended - waiting for 30 seconds until recheck")    
                     time.sleep(30)
                     [command_time, ext_command] = self.read_external_command()
                     if ext_command == 'resume':
@@ -563,6 +565,8 @@ class TrTrader():
                         break
             elif ext_command == 'resume':
                 print("[resume] command not executed in suspend status is ignored")
+            elif ext_command == 'ping':
+                print("ping > trtrader is running")
 
             if ext_command == 'stop':
                 self.km.trade_log_write("*****************************************************")
@@ -575,7 +579,7 @@ class TrTrader():
             html = urllib.request.urlopen(EXTERNAL_COMMAND_URL).read()
             soup = BeautifulSoup(html, features='lxml')
             text = soup.get_text()
-            lines = [line.strip() for line in text.splitlines()]   
+            lines = [line.strip() for line in text.splitlines()]  # strips spaces before and after each word 
             command_time = datetime.strptime(lines[0], "%Y%m%d %H:%M:%S")
             ext_command = lines[1]
             if command_time > self.ext_command_last_excution_time_:
@@ -622,17 +626,17 @@ class TrTrader():
             f = open(STATUS_REPORT_FILE, 'w')
             f.write('master_book (up to last 75 items): \n')
             f.write(tabulate(mb_print.loc[-75:, l], headers='keys', showindex=False, tablefmt='simple')) 
-            f.write('\n\n')
+            f.write('\n')
             f.close()
 
             m = open(STATUS_REPORT_MOBILE, 'w')
             m.write('master_book (last 75 items): \n')
             m.write(tabulate(mb_mobile.loc[-75:, lm], headers='keys', showindex=False, tablefmt='simple')) 
-            m.write('\n\n')
+            m.write('\n')
             m.close()
 
         else: 
-            print('MASTER_BOOK (up to last 75 items): \n', tabulate(mb_print.loc[-75:, l], headers='keys', showindex=False, tablefmt='psql'), '\n') 
+            print('MASTER_BOOK (up to last 75 items): \n', tabulate(mb_print.loc[-75:, l], headers='keys', showindex=False, tablefmt='psql'))
 
         if len(self.trtrade_list) > 0:
             for i in self.trtrade_list.index: 
@@ -642,25 +646,23 @@ class TrTrader():
                 f = open(STATUS_REPORT_FILE, 'a')
                 f.write('trtrade_list (up to last 75 items): \n')
                 f.write(tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='simple'))
-                f.write('\n\n')
+                f.write('\n')
                 f.close()
 
                 m = open(STATUS_REPORT_MOBILE, 'a')
                 m.write('trtrade_list (last 75 items): \n')
                 m.write(tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='simple'))
-                m.write('\n\n')
+                m.write('\n')
                 m.close()
             else: 
-                print('trtrade_list (up to last 75 items): \n', tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='psql'), '\n')
+                print('trtrade_list (up to last 75 items): \n', tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='psql'))
         else: 
             if to_file == True: 
                 f = open(STATUS_REPORT_FILE, 'a')
                 f.write('trtrade_list empty \n')
-                f.write('\n')
                 f.close()
                 m = open(STATUS_REPORT_MOBILE, 'a')
                 m.write('trtrade_list empty \n')
-                m.write('\n')
                 m.close()
             else: 
                 print('trtrade_list empty')
@@ -701,7 +703,7 @@ class TrTrader():
             f.write("- Total invested(k): " + tr_invested_total + "\n")
             f.write("- Current Value(k): " + tr_cvalue_total + "\n")
             f.write('- Realized Return Total(k): ' + tr_realized_return_total + "\n")
-            f.write('- Exception List: ' + str(TRENDTRADE_EXCEPT_LIST) + "\n\n")
+            f.write('- Exception List: ' + str(TRENDTRADE_EXCEPT_LIST) + "\n")
             f.close()
             m = open(STATUS_REPORT_MOBILE, 'a')
             m.write("[TrTrade Summary - " + t + "]" + "\n")
@@ -712,10 +714,10 @@ class TrTrader():
             m.write("- Total invested(k): " + tr_invested_total + "\n")
             m.write("- Current Value(k): " + tr_cvalue_total + "\n")
             m.write('- Realized Return Total(k): ' + tr_realized_return_total + "\n")
-            m.write('- Exception List: ' + str(TRENDTRADE_EXCEPT_LIST) + "\n\n")
+            m.write('- Exception List: ' + str(TRENDTRADE_EXCEPT_LIST) + "\n")
             m.close()
         else: 
-            self.km.trade_log_write("\n[TrTrade Summary - " + t + ']')
+            self.km.trade_log_write("[TrTrade Summary - " + t + ']')
             self.km.trade_log_write("- Kiwoom Cash(k): " + cash_account)
             self.km.trade_log_write("- TrTrade Cash(k): " + cash_trtrading)
             self.km.trade_log_write('- Return(%): ' + tr_return_rate)
