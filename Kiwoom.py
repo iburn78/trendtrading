@@ -13,7 +13,16 @@ API_REQ_TIME_INTERVAL = 0.3 # min: 0.2
 with open(TRTRADER_SETTINGS_FILE) as f:
     tsf = json.load(f)
     WORKING_DIR_PATH = tsf['WORKDING_DIR'] 
+################################################################################################
 TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
+def tl_print(*args, **kwargs):
+    ff = open(TRADE_LOG_FILE, 'a')
+    msg = str(args[0])
+    for i in args[1:]: 
+        msg += " " + str(i)
+    ff.write(msg + "\n")
+    print(*args, **kwargs)
+    ff.close()
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -38,9 +47,9 @@ class Kiwoom(QAxWidget):
     def _event_connect(self, err_code):
         if err_code == 0:
             self.connect_status = True
-            print("Kiwoom API connected")
+            tl_print("Kiwoom API connected")
         else:
-            print("Kiwoom API not connected")
+            tl_print("Kiwoom API not connected")
         self.login_event_loop.exit()
 
     def get_master_code_name(self, code):
@@ -60,11 +69,11 @@ class Kiwoom(QAxWidget):
         self.tr_event_loop.exec_()
         if res == 0 and self.order_number != "": # success  
             # hoga: fixed 00, mkt 03
-            self.trade_log_write(" ".join(["[SendOrder]", time.strftime(" %m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no)]))
+            tl_print("[SendOrder]", time.strftime(" %m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no))
             self.chejan_event_loop = QEventLoop()
             self.chejan_event_loop.exec_()
         else:
-            self.trade_log_write(" ".join(["--- SendOrder Fail:", "("+str(res)+")", time.strftime(" %m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no)]))
+            tl_print("--- SendOrder Fail:", "("+str(res)+")", time.strftime(" %m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no))
         time.sleep(API_REQ_TIME_INTERVAL)
         return (res, self.order_number)
 
@@ -83,7 +92,7 @@ class Kiwoom(QAxWidget):
             tr_price = int(self.get_chejan_data(910))
             tr_time = time.strftime("%m%d %H:%M:%S")
             self._chejan_avg_price_data.append([int(pv), tr_price])
-            self.trade_log_write(" " + tr_time + " " + stock_name + "("+ stock_code + ") "
+            tl_print(" " + tr_time + " " + stock_name + "("+ stock_code + ") "
                   + bs + ", " + pv + "/" + oq + ", at price: " + format(tr_price, ','))
             if pv == oq: 
                 tr_time = time.ctime() # for excel file recognition
@@ -96,17 +105,11 @@ class Kiwoom(QAxWidget):
                     avg_price = int(p_sum/int(oq))
                 self.chejan_finish_data = [stock_code, stock_name, buy_sell, avg_price, int(pv), tr_time]
                 self._chejan_avg_price_data = []
-                self.trade_log_write(" average price: " + format(avg_price, ','))
+                tl_print(" average price: " + format(avg_price, ','))
                 try:
                     self.chejan_event_loop.exit()
                 except Exception as e: 
-                    print("On chejan receive, loop exit error:", e)
-
-    def trade_log_write(self, msg):
-        ff = open(TRADE_LOG_FILE, 'a')
-        ff.write(msg + "\n")
-        print(msg)
-        ff.close()
+                    tl_print("Exception: On chejan receive, loop exit error: " + str(e))
 
     def set_input_value(self, id, value):
         self.dynamicCall("SetInputValue(QString, QString)", id, value)
@@ -166,12 +169,12 @@ class Kiwoom(QAxWidget):
             self.order_number = self._comm_get_data(trcode, "", rqname, 0, "주문번호")
 
         else: 
-            print("TR request name not matching: ", screen_no, rqname, trcode, record_name, next_, unused1, unused2, unused3, unused4)
+            tl_print("TR request name not matching: ", screen_no, rqname, trcode, record_name, next_, unused1, unused2, unused3, unused4)
 
         try:
             self.tr_event_loop.exit()
         except Exception as e: 
-            print("On tr receive, loop exit error:", e)
+            tl_print("Exception: On tr receive, loop exit error: " + str(e))
 
     def _opt10081(self, rqname, trcode):
         data_cnt = self._get_repeat_cnt(trcode, rqname)
@@ -243,7 +246,8 @@ class Kiwoom(QAxWidget):
             self.opw00018_formatted_data['multi'].append([name, code, quantity, purchase_price, current_price, invested_amount, current_total, ret, retrate])
 
         if self.remained_data: 
-            raise Exception("REMAINED STOCK EXISTS - IN OPW00018")
+            tl_print("Exception: REMAINED STOCK EXISTS - IN OPW00018")
+            raise Exception()
     
     def _opt10001(self, rqname, trcode):
         cprice = self._comm_get_data(trcode, "", rqname, 0, "현재가")
