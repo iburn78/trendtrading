@@ -10,6 +10,19 @@ HR_DICT = {'Open': '09:00', 'Low': '11:00', 'High': '13:00', 'Close': '15:30'}
 SIM_OUTPUT_FILE = 'data/sim_output.txt'
 PLT_PAUSE_DURATION = 0.1
 
+code_to_test = '005930.ks'
+start_date = '2019-07-06'
+end_date = time.strftime("%Y-%m-%d")
+code_dict = 
+
+def get_target_data(code_to_test, start_date, end_date):
+    target = yf.Ticker(code_to_test)
+    target_data = target.history(start=start_date, end=end_date, auto_adjust=False) # volume in number of stocks
+    #### manipulation part ####
+    target_data.loc['2019-08-01':'2019-08-31'] = target_data.loc['2019-08-01':'2019-08-31']/2 
+    ####
+    return target_data
+
 class SimController():
     def __init__(self): # only called once for the whole simulation (backtesting) 
                         # use this to set global variables to be used commonly throughout the backtesting
@@ -18,15 +31,9 @@ class SimController():
         except Exception as e: 
             pass
         self.initial_cash = START_CASH
-        self.code_dict = {'005930': '삼성전자'}
-        self.code_to_test = '005930.ks'
-        self.start_date = '2019-07-06'
-        self.end_date = time.strftime("%Y-%m-%d")
-        target = yf.Ticker(self.code_to_test)
-        self.sim_time = time.asctime(time.strptime(self.start_date, "%Y-%m-%d"))
-        self.target_data = target.history(start = self.start_date, end=self.end_date, auto_adjust=False) # volume in number of stocks
+        self.target_data = get_target_data(code_to_test, start_date, end_date)
         self.queue = multiprocessing.Queue()
-        self.plot_proc = multiprocessing.Process(target=self.data_plot, args=(self.target_data,self.queue), kwargs={'name':self.code_to_test}, daemon=True)
+        self.plot_proc = multiprocessing.Process(target=self.data_plot, args=(self.target_data,self.queue), kwargs={'name':code_to_test}, daemon=True)
         self.plot_proc.start()
         self.execute_ext_list_gen = True # executed at TrTrader when USE_SIMULATION = True
 
