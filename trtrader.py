@@ -6,7 +6,9 @@ import json
 import urllib.request
 from bs4 import BeautifulSoup
 from datetime import datetime
+from simulator import *
 
+USE_SIMULATOR = True
 ################################################################################################
 MASTER_BOOK_FILE = 'data/master_book.xlsx'
 MASTER_BOOK_BACKUP_FILE = 'data/backup/master_book.xlsx'
@@ -16,14 +18,17 @@ EXTERNAL_LIST_BACKUP_FILE = 'data/backup/external_list.xlsx'
 STATUS_REPORT_FILE = 'data/trtrader_status.txt'
 STATUS_REPORT_MOBILE = 'data/trtrader_status_brief.txt'
 EXTERNAL_COMMAND_URL = "http://13.209.99.197/command.html"
+EXT_COMM_SUSPEND_SLEEPING_TIME = 10
 ################################################################################################
 START_CASH = 300000000
 TICKET_SIZE = 3000000       # Target amount to be purchased in KRW
 
-# FEE_RATE = 0.00015        # real FEE_RATE
-# TAX_RATE = 0.003          # real TAX_RATE (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products)
-FEE_RATE = 0.0035           # for simulation
-TAX_RATE = 0.0025           # for simulation (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
+if USE_SIMULATOR:
+    FEE_RATE = 0.00015        # real FEE_RATE
+    TAX_RATE = 0.003          # real TAX_RATE (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products)
+else: 
+    FEE_RATE = 0.0035           # for Kiwoom Test Server
+    TAX_RATE = 0.0025           # for Kiwoom Test Server (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
 ################################################################################################
 CREATE_NEW_MASTER_BOOK = False  # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
                                 # Note: refer to the note below TRENDTRADE_EXCEPT_LIST
@@ -74,114 +79,131 @@ ABRIDGED_DICT = {'new_ent':  'N', 'reinv': 'R', 'a_sold': 'S', 'p_sold': 'P', 'S
 #   as they will be re-created when trendtrading_mainlogic is re-run
 
 
-class TrTrader(): 
-    def __init__(self):
+class TrTrader():   
+    def __init__(self, simctrl_instance = None):  
         self.ext_command_last_excution_time_ = datetime.now() # last execution set to __init__ time initiation 
-        self.km = Kiwoom()
+        if USE_SIMULATOR: 
+            self.km = Simulator(simctrl_instance)
+        else:
+            self.km = Kiwoom()
         if not self.km.connect_status: 
             tl_print("System exits")
             sys.exit()
         self.bounds_prep()
         self.prev_mbf_exists = os.path.exists(MASTER_BOOK_FILE)
-        self.master_book_initiator(START_CASH, replace = CREATE_NEW_MASTER_BOOK)
-        self.master_book_integrity_checker()
         self.trtrade_list = pd.DataFrame(columns = ['code', 'amount', 'buy_sell', 'note'])
+        self.master_book_initiator(START_CASH, replace = CREATE_NEW_MASTER_BOOK)
+        if not USE_SIMULATOR:
+            self.master_book_integrity_checker() 
     
     def close_(self):
         self.write_master_book_to_Excel(self.master_book)
         self.status_print(to_file = True)
-        self.status_print(to_file = False) # print to screen too
+        if not USE_SIMULATOR:
+            self.status_print(to_file = False) # print to screen too
 
-    # def __del__(self):
-    #     del self.km
-    #     print("TrTrader object deleted")
+    def __del__(self):
+        del self.km
 
     def run_(self):
-        self.execute_external_command()
+        self.execute_external_control_command() # web-based control through AWS
         cash = self.trendtrading_mainlogic() # returns cash amount if all trtrade_list buy_sells are executed
-        self.load_external_list(cash)
-        if len(self.trtrade_list.loc[self.trtrade_list['note']=='yet']) == 0: 
-            print(time.strftime("t%M:%S"), end="\r")  # Exception for trade_log_print (tl_print)
+        self.load_external_trade_list(cash)
+        trtrade_list_yetitems = self.trtrade_list.loc[self.trtrade_list['note']=='yet']
+        if len(trtrade_list_yetitems) == 0: 
+            # print(time.strftime("t%M:%S"), end="\r")  # Exception for trade_log_print (tl_print)
+            if USE_SIMULATOR:
+                return False
         else: 
             self.trade_stocks()
+            self.status_print(to_file = False) # print to screen too
+            if USE_SIMULATOR:
+                return True
         self.status_print(to_file = True)
 
-    def load_external_list(self, cash): 
-        # check exception list (stocks in exception list as well as stocks in master_book: exclude any existing stocks)
-        # check cash
+    def load_external_trade_list(self, cash): 
+        # if a file that contains a list of stocks to be traded exists, load it
         if os.path.exists(EXTERNAL_LIST_FILE):
             el = TrTrader.read_external_buysell_list()
-            bk = self.km.get_account_stock_list(ACCOUNT_NO)
+            self.external_list_prep(cash, el)
 
-            for i in el.index: 
-                if el.at[i, 'code'] in TRENDTRADE_EXCEPT_LIST:
-                    tl_print("*** WARNING: External buysell list contains item in TRENDTRADE_EXCEPT_LIST: ", el.at[i, 'code'], " - this item ignored")
+        # when USE_SIMULATOR, each run_() run will load external list created at SimController
+        if USE_SIMULATOR:
+            self.external_list_prep(cash, self.km.simctrl.ext_list_gen()) 
+    
+    def external_list_prep(self, cash, el):
+        bk = self.km.get_account_stock_list(ACCOUNT_NO)
+        for i in el.index: 
+            if el.at[i, 'code'] in TRENDTRADE_EXCEPT_LIST:
+                tl_print("*** WARNING: External buysell list contains item in TRENDTRADE_EXCEPT_LIST: ", el.at[i, 'code'], " - this item ignored")
+                el = el.drop(i)
+                continue
+
+            cprice = self.km.get_price(el.at[i,'code'])
+            if cprice == 0: 
+                tl_print("*** WARNING: External list contains item with zero current price: ", el.at[i, 'code'], " - this item ignored")
+                el = el.drop(i)
+                continue
+
+            if el.at[i, 'buy_sell'] == 'buy': 
+                if el.at[i, 'code'] in list(bk['code']):
+                    tl_print("*** WARNING: External list contains item in current trtrading list: ", el.at[i, 'code'], " - this item ignored")
                     el = el.drop(i)
                     continue
-
-                cprice = self.km.get_price(el.at[i,'code'])
-                if cprice == 0: 
-                    tl_print("*** WARNING: External list contains item with zero current price: ", el.at[i, 'code'], " - this item ignored")
-                    el = el.drop(i)
+                if el.at[i, 'amount'] == 0:
+                    el.at[i, 'amount'] = int(round(TICKET_SIZE/cprice))
+                    tl_print("*** External list contains item with buy quantity set to zero: ", el.at[i, 'code'], " - buy quanity set to TICKET_SIZE") 
+                ticket = int(round(cprice*el.at[i, 'amount']*self.tax_fee_adjustment('buy')))
+                if cash > ticket*MIN_CASH_FOR_PURCHASE_RATE: 
+                    cash = cash - ticket
+                else:
+                    tl_print("Exception: Cash is not enough for external list purchase: " + el.at[i, 'code'])
+                    raise Exception()
+            else: # 'sell'
+                if el.at[i,'code'] not in list(bk['code']):
+                    tl_print("*** WARNING: External list contains sell item not in current trtrading list: ", el.at[i, 'code'], " - this item ignored")
                     continue
+                ci = bk.loc[bk['code'] == el.at[i, 'code']]
+                if el.at[i, 'amount'] == 0:
+                    el.at[i, 'amount'] = int(ci['nshares'])
+                    tl_print("*** External list contains item with sell quantity set to zero: ", el.at[i, 'code'], " - sell quanity set to max") 
+                elif el.at[i, 'amount'] > int(ci['nshares']):
+                    el.at[i, 'amount'] = int(ci['nshares'])
+                    tl_print("*** WARNING: External list contains item with sell quantity exceeding current quantity: ", el.at[i, 'code'], " - sell quanity set to max") 
+                else: 
+                    pass
+                ticket = int(round(cprice*el.at[i, 'amount']*self.tax_fee_adjustment('sell')))
+                cash = cash + ticket
 
-                if el.at[i, 'buy_sell'] == 'buy': 
-                    if el.at[i, 'code'] in list(bk['code']):
-                        tl_print("*** WARNING: External list contains item in current trtrading list: ", el.at[i, 'code'], " - this item ignored")
-                        el = el.drop(i)
-                        continue
-                    if el.at[i, 'amount'] == 0:
-                        el.at[i, 'amount'] = int(TICKET_SIZE/cprice) 
-                        tl_print("*** External list contains item with buy quantity set to zero: ", el.at[i, 'code'], " - buy quanity set to TICKET_SIZE") 
-                    ticket = int(cprice*el.at[i, 'amount']*self.tax_fee_adjustment('buy'))
-                    if cash > ticket*MIN_CASH_FOR_PURCHASE_RATE: 
-                        cash = cash - ticket
-                    else:
-                        tl_print("Exception: Cash is not enough for external list purchase: " + el.at[i, 'code'])
-                        raise Exception()
-                else: # 'sell'
-                    if el.at[i,'code'] not in list(bk['code']):
-                        tl_print("*** WARNING: External list contains sell item not in current trtrading list: ", el.at[i, 'code'], " - this item ignored")
-                        continue
-                    ci = bk.loc[bk['code'] == el.at[i, 'code']]
-                    if el.at[i, 'amount'] == 0:
-                        el.at[i, 'amount'] = int(ci['nshares'])
-                        tl_print("*** External list contains item with sell quantity set to zero: ", el.at[i, 'code'], " - sell quanity set to max") 
-                    elif el.at[i, 'amount'] > int(ci['nshares']):
-                        tl_print("*** WARNING: External list contains item with sell quantity exceeding current quantity: ", el.at[i, 'code'], " - sell quanity set to max") 
-                        el.at[i, 'amount'] = int(ci['nshares'])
-                    else: 
-                        pass
-                    ticket = int(cprice*el.at[i, 'amount']*self.tax_fee_adjustment('sell'))
-                    cash = cash + ticket
-
-            if len(el) > 0: 
-                tl_print('External buy_sell list loaded')
-                self.trtrade_list = self.trtrade_list.append(el)
-                self.trtrade_list = self.trtrade_list.reset_index(drop = True)
-            
-        else: 
-            # print('No external buy_sell list')
-            pass
+        if len(el) > 0: 
+            tl_print('External buy_sell list loaded')
+            self.trtrade_list = self.trtrade_list.append(el)
+            self.trtrade_list = self.trtrade_list.reset_index(drop = True)
 
 
     def trade_stocks(self):
         ##################################################
-        # MODIFY TO SELL FIRST AND THEN BUY
+        # MAY NEED TO MODIFY TO SELL FIRST AND THEN BUY
         bs_lookup = {'buy': 1, 'sell': 2}
-        # print("trade_stocks activated") #######################
-        # print(self.trtrade_list) #####################
-        # print(self.master_book) #####################
+        self.tr_data = []
+        self.tr_data_res_ = []
         for i in self.trtrade_list.index:
             if self.trtrade_list["note"][i] == 'yet': # or self.trtrade_list["note"][i] == 'failed': ############################### For failed, re running of tr-mainlogic would result in adding the same item
                 res = self.km.send_order("send_order_req", "0101", ACCOUNT_NO, bs_lookup[self.trtrade_list["buy_sell"][i]], 
                         self.trtrade_list["code"][i], self.trtrade_list["amount"][i], 0, '03', "") # trade in market price, price = 0, hoga = '3'
     
-                if res[0] == 0 and res[1] != "":
+                if res[0] == 0 and res[1] != "": # success
                     self.trtrade_list.at[i, "note"] = 'ordered'
-                    a = self.km.chejan_finish_data
+                    self._write_transaction_to_master_book(self.km.chejan_finish_data[0],   
+                                                           self.km.chejan_finish_data[1],   
+                                                           self.km.chejan_finish_data[2], 
+                                                           self.km.chejan_finish_data[3], 
+                                                           self.km.chejan_finish_data[4], 
+                                                           self.km.chejan_finish_data[5])
+                    self.km.chejan_finish_data.append(self.tr_data_res_)
+                    self.tr_data.append(self.km.chejan_finish_data)
                     self.km.chejan_finish_data = []
-                    self._write_transaction_to_master_book(a[0], a[1], a[2], a[3], a[4], a[5])
+                    # self.tr_data = [stock_code, stock_name, buy_sell, avg_price, int(pv), tr_time, [invtotal, ret]]
                 else:
                     tl_print("--- Error in order processing: ", self.trtrade_list['code'][i])
                     self.trtrade_list.at[i, "note"] = 'failed'
@@ -190,12 +212,13 @@ class TrTrader():
         # Trend trading logic
         # [step 0] for active set copy, do the following
         mb_active = self.master_book.loc[self.master_book['active']]
-        cash = self.master_book.at[self.master_book.index[-1], 'cash']
+        cash = self.master_book.at[self.master_book.index[-1], 'cash'] # to be cash after the trtrade_list generated by a trendtrading_mainlogic run is excuted 
+        book_cash = cash # cash to be written at the last line of master_book 
         
         # [step 1] update cprice, cvalue, retrate
         for i in mb_active.index:
             updated_price = self.km.get_price(mb_active.at[i, 'code'])
-            updated_value = int(updated_price*mb_active.at[i, 'nshares']*self.tax_fee_adjustment('sell'))
+            updated_value = int(round(updated_price*mb_active.at[i, 'nshares']*self.tax_fee_adjustment('sell')))
             updated_rr = round(updated_value/mb_active.at[i, 'invtotal'] - 1, 4) # return rate
             mb_active.at[i, 'cprice'] = updated_price
             mb_active.at[i, 'cvalue'] = updated_value
@@ -208,15 +231,22 @@ class TrTrader():
                 if updated_rr >= mb_active.at[i, 'LB']:
                     mb_active.at[i, 'dec_made'] = "released"
                     mb_active.at[i, 'dec_time'] = time.ctime()
-                else: 
-                    self.master_book.loc[i,:] = mb_active.loc[i,:]
+                    self.master_book.loc[i, 'active'] = False
+                    new_line = mb_active.loc[mb_active.index == i]
+                    new_line.at[i, 'cash'] = book_cash
+                    new_line.index = [len(self.master_book)]
+                    self.master_book = self.master_book.append(new_line)
         # [step 3] for dec_made != SUSPEND and != "EXCEPT": compare rr with LLB, LB, UB
-            if mb_active.at[i, 'dec_made'] != "SUSPEND" and mb_active.at[i, 'dec_made'] != "EXCEPT":
+            else: # if mb_active.at[i, 'dec_made'] != "SUSPEND" and mb_active.at[i, 'dec_made'] != "EXCEPT":
                 # if hits LLB, suspend trading until it reaches LB: dec_made = SUSPEND, update dec_time
                 if updated_rr <= mb_active.at[i, 'LLB']:
                     mb_active.at[i, 'dec_made'] = "SUSPEND"
                     mb_active.at[i, 'dec_time'] = time.ctime()
-                    self.master_book.loc[i,:] = mb_active.loc[i,:]
+                    self.master_book.loc[i, 'active'] = False
+                    new_line = mb_active.loc[mb_active.index == i]
+                    new_line.at[i, 'cash'] = book_cash
+                    new_line.index = [len(self.master_book)]
+                    self.master_book = self.master_book.append(new_line)
 
                 # if in between LLB and LB, sell (at loss): add this item to the trtrade_list (sell), code and quantity, DO NOT CHANGE MASTER BOOK 
                 else:
@@ -226,7 +256,7 @@ class TrTrader():
                         cash = cash + updated_value
                 # if in between LB and UB: hold 
                     elif updated_rr < mb_active.at[i, 'UB']:
-                        self.master_book.loc[i,:] = mb_active.loc[i,:]
+                        pass
                 # if hits UB: 
                     else:
                     # elif no_repurchase = MAX_ELEVATION: add this item to the trade_list (sell), DO NOT CHANGE MASTER BOOK
@@ -239,7 +269,7 @@ class TrTrader():
                         # check cash, 
                             # if cash > MIN_CASH_FOR_PURCHASE and no_repurchase < MAX_REINVESTMENT: add this item to trade_list (buy), DO NOT CHANGE MASTER BOOK
                             if cash > MIN_CASH_FOR_PURCHASE and nr < MAX_REINVESTMENT:
-                                self.trtrade_list.loc[len(self.trtrade_list)] = [self.master_book.at[i, 'code'], int(TICKET_SIZE/updated_price), 'buy', 'yet']
+                                self.trtrade_list.loc[len(self.trtrade_list)] = [self.master_book.at[i, 'code'], int(round(TICKET_SIZE/updated_price)), 'buy', 'yet']
                                 tl_print("Situation 3 - higher than UB: ", self.master_book.at[i, 'code'], " buy" ) ##########################
                                 cash = cash - TICKET_SIZE
                             # else elevate bounds 1 steps, and update no_repurchase, dec_made = "bd_elev" and dec_time 
@@ -251,8 +281,11 @@ class TrTrader():
                                 mb_active.at[i, 'UB'] = UB
                                 mb_active.at[i, 'dec_made'] = 'bd_elev'
                                 mb_active.at[i, 'dec_time'] = time.ctime()
-                                self.master_book.loc[i,:] = mb_active.loc[i,:]
-
+                                self.master_book.loc[i, 'active'] = False
+                                new_line = mb_active.loc[mb_active.index == i]
+                                new_line.at[i, 'cash'] = book_cash
+                                new_line.index = [len(self.master_book)]
+                                self.master_book = self.master_book.append(new_line)
         return cash
 
     def master_book_integrity_checker(self): 
@@ -277,7 +310,7 @@ class TrTrader():
             entries['init_invtime'] = entries['dec_time'] = time.ctime()
             entries['dec_made'] = 'loaded'
             entries['active'] = True
-            for i in bk.index:
+            for i in entries.index:
                 res = self.nreinv_find(entries.at[i, 'retrate'])
                 if res[0] == -1:
                     entries.at[i, 'dec_made'] = 'EXCEPT'
@@ -306,7 +339,7 @@ class TrTrader():
             mb_active = self.master_book.loc[self.master_book['active']] # selected subset of DataFrame is already a deep copy of original DataFrame 
             if len(mb_active) != len(bk): 
                 tl_print("Exception: Master_Book integrity check: error (1)")
-                raise Exception() # this error could occur when releasing and adding to TRENDTRADE_EXCEPT_LIST 
+                raise Exception() # this error could occur when releasing from and adding to TRENDTRADE_EXCEPT_LIST 
             for i in bk.index: 
                 mt = mb_active[mb_active['code'] == bk.at[i, 'code']]
                 if len(mt) != 1: 
@@ -323,7 +356,8 @@ class TrTrader():
 
     def master_book_initiator(self, initial_cash_amount, replace = False): 
         if self.prev_mbf_exists and not replace: 
-            tl_print("Using existing master book - master book file exists")
+            # tl_print("Using existing master book - master book file exists")
+            pass
 
         else:
             if self.prev_mbf_exists and replace: 
@@ -432,8 +466,8 @@ class TrTrader():
                 new_line.at[0, 'LLB'] = LLB
                 new_line.at[0, 'LB'] = LB
                 new_line.at[0, 'UB'] = UB
-                new_line.at[0, 'invtotal'] = v1 = int(price*quantity*self.tax_fee_adjustment('buy'))
-                new_line.at[0, 'cvalue'] = v2 = int(price*quantity*self.tax_fee_adjustment('sell'))
+                new_line.at[0, 'invtotal'] = v1 = int(round(price*quantity*self.tax_fee_adjustment('buy')))
+                new_line.at[0, 'cvalue'] = v2 = int(round(price*quantity*self.tax_fee_adjustment('sell')))
                 new_line.at[0, 'retrate'] = round((v2-v1)/v1, 4)
                 new_line.at[0, 'ret'] = 0
                 new_line.at[0, 'init_invtime'] = tr_time
@@ -446,27 +480,26 @@ class TrTrader():
                 idx = list(active_line.index)[0]
                 self.master_book.at[idx, 'active'] = False
                 new_line = active_line
-                # new_line.at[idx, 'code'] = code # should be the same
-                # new_line.at[idx, 'name'] = name 
                 new_line.at[idx, 'cprice'] = price # price update
                 new_line.at[idx, 'nshares'] = ns = new_line.at[idx, 'nshares'] + quantity # repurchase
                 new_line.at[idx, 'nreinv'] = nr = new_line.at[idx, 'nreinv'] + 1
-                if nr > MAX_ELEVATION:  
+                if nr > MAX_REINVESTMENT:  
                     tl_print("Exception: Do not attmpt to purchase over MAX_ELEVATION")
                     raise Exception()
                 [LLB, LB, UB] = self.bounds(nr)
                 new_line.at[idx, 'LLB'] = LLB
                 new_line.at[idx, 'LB'] = LB
                 new_line.at[idx, 'UB'] = UB
-                new_line.at[idx, 'invtotal'] = v1 = new_line.at[idx, 'invtotal'] + int(price*quantity*self.tax_fee_adjustment('buy'))
-                new_line.at[idx, 'cvalue'] = v2 = int((price*ns)*self.tax_fee_adjustment('sell'))
+                repv = int(round(price*quantity*self.tax_fee_adjustment('buy')))
+                new_line.at[idx, 'invtotal'] = v1 = new_line.at[idx, 'invtotal'] + repv
+                new_line.at[idx, 'cvalue'] = v2 = int(round((price*ns)*self.tax_fee_adjustment('sell')))
                 new_line.at[idx, 'retrate'] = round((v2-v1)/v1, 4)
                 new_line.at[idx, 'ret'] = 0
                 # new_line.at[0, 'init_invtime'] = tr_time # does not change
                 new_line.at[idx, 'dec_made'] = 'reinv'
                 new_line.at[idx, 'dec_time'] = tr_time # update time
                 new_line.at[idx, 'active'] = True
-                new_line.at[idx, 'cash'] = ch = self.master_book.at[len(self.master_book)-1, 'cash'] - v1
+                new_line.at[idx, 'cash'] = ch = self.master_book.at[len(self.master_book)-1, 'cash'] - repv
 
             else: 
                 tl_print("Exception: ERROR in Master_Book Integrity - buy")
@@ -477,36 +510,29 @@ class TrTrader():
                 idx = list(active_line.index)[0]
                 self.master_book.at[idx, 'active'] = False
                 new_line = active_line
-                # new_line.at[idx, 'code'] = code
-                # new_line.at[idx, 'name'] = name
                 new_line.at[idx, 'cprice'] = price # price update
                 original_quantity = new_line.at[idx, 'nshares']
                 new_line.at[idx, 'nshares'] = remained_quantity = original_quantity - quantity
-                # new_line.at[idx, 'nreinv'] = nr = 0 
-                # new_line.at[idx, 'LLB'] = 0  #### function of nr
-                # new_line.at[idx, 'LB'] = 0  #### 
-                # new_line.at[idx, 'UB'] = 0  #### 
                 avg_price = new_line.at[idx, 'invtotal'] / original_quantity
                 new_line.at[idx, 'invtotal'] = v1 = avg_price*remained_quantity 
-                new_line.at[idx, 'cvalue'] = v2 = int(price*remained_quantity*self.tax_fee_adjustment('sell'))
+                new_line.at[idx, 'cvalue'] = v2 = int(round(price*remained_quantity*self.tax_fee_adjustment('sell')))
                 if v1 != 0:  # remained_quantity is not zero
                     new_line.at[idx, 'retrate'] = round((v2-v1)/v1, 4)
                 else: 
                     new_line.at[idx, 'retrate'] = 0
-                v3 = (price*quantity*self.tax_fee_adjustment('sell'))
+                v3 = int(round(price*quantity*self.tax_fee_adjustment('sell')))
                 new_line.at[idx, 'ret'] = v3 - avg_price*quantity
-                # new_line.at[idx, 'init_invtime'] = tr_time # does not change
                 if remained_quantity == 0: 
                     new_line.at[idx, 'dec_made'] = 'a_sold' 
                     new_line.at[idx, 'active'] = False
+                    #################################################################
+                    # tr_data saves results only when a_sold
+                    self.tr_data_res_ = [self.master_book.at[idx,'invtotal'], new_line.at[idx, 'ret']]
                 else: 
                     new_line.at[idx, 'dec_made'] = 'p_sold'
                     new_line.at[idx, 'active'] = True
                 new_line.at[idx, 'dec_time'] = tr_time
                 new_line.at[idx, 'cash'] = ch = self.master_book.at[len(self.master_book)-1, 'cash'] + v3 
-                if remained_quantity < 0: 
-                    tl_print("Exception: Netagive remained quantity")
-                    raise Exception()
             else: 
                 tl_print("Exception: ERROR in Master_Book Integrity - sell")
                 raise Exception()
@@ -551,7 +577,7 @@ class TrTrader():
         else: # buy_sell == 'sell':
             return 1-(FEE_RATE + TAX_RATE) # when selling, your cash is dedcuted by tax and fee
 
-    def execute_external_command(self):
+    def execute_external_control_command(self):
         [command_time, ext_command] = self.read_external_command()
         if ext_command != '':
             tl_print('External command ['+ext_command+'] recognized at time: '
@@ -561,8 +587,8 @@ class TrTrader():
                 tl_print("PROCESS SUSPENDED PER THE EXTERNAL COMMAND: [suspend]")
                 tl_print("*****************************************************")
                 while 1: 
-                    tl_print("System suspended - waiting for 30 seconds until recheck")    
-                    time.sleep(30)
+                    tl_print("System suspended - waiting for", EXT_COMM_SUSPEND_SLEEPING_TIME, "seconds until recheck")    
+                    time.sleep(EXT_COMM_SUSPEND_SLEEPING_TIME)
                     [command_time, ext_command] = self.read_external_command()
                     if ext_command == 'resume':
                         tl_print('External command ['+ext_command+'] recognized at time: '
@@ -617,10 +643,10 @@ class TrTrader():
             mb_print.at[i, 'LLB'] = format(float(mb_print.at[i, 'LLB'])*100, '.1f')
             mb_print.at[i, 'LB'] = format(float(mb_print.at[i, 'LB'])*100, '.1f')
             mb_print.at[i, 'UB'] = format(float(mb_print.at[i, 'UB'])*100, '.1f')
-            mb_print.at[i, 'invtotal'] = format(int(float(mb_print.at[i, 'invtotal'])/1000), ',')
-            mb_print.at[i, 'cvalue'] = format(int(float(mb_print.at[i, 'cvalue'])/1000), ',')
-            mb_print.at[i, 'ret'] = format(int(float(mb_print.at[i, 'ret'])/1000), ',')
-            mb_print.at[i, 'cash'] = format(int(float(mb_print.at[i, 'cash'])/1000), ',')
+            mb_print.at[i, 'invtotal'] = format(int(round(float(mb_print.at[i, 'invtotal'])/1000)), ',')
+            mb_print.at[i, 'cvalue'] = format(int(round(float(mb_print.at[i, 'cvalue'])/1000)), ',')
+            mb_print.at[i, 'ret'] = format(int(round(float(mb_print.at[i, 'ret'])/1000)), ',')
+            mb_print.at[i, 'cash'] = format(int(round(float(mb_print.at[i, 'cash'])/1000)), ',')
             mb_print.at[i, 'retrate'] = format(float(mb_print.at[i, 'retrate'])*100, '.1f')
         mb_print = mb_print.rename(columns={'cprice': 'cpr', 'nshares': 'vol', 'nreinv': 'nr', 'LLB': 'LL(%)', 'LB': 'L(%)', 'UB': 'U(%)', 
                                     'invtotal': 'inv(k)', 'cvalue': 'cval(k)', 'retrate':'rt(%)', 'ret': 'rt(k)', 'dec_made': 'dec', 'active': 'act', 'cash': 'cash(k)'})
@@ -652,23 +678,24 @@ class TrTrader():
             tl_print('MASTER_BOOK (up to last 75 items): \n', tabulate(mb_print.loc[-75:, l], headers='keys', showindex=False, tablefmt='psql'))
 
         if len(self.trtrade_list) > 0:
-            for i in self.trtrade_list.index: 
-                self.trtrade_list.at[i, 'name'] = self.km.get_master_code_name(self.trtrade_list.at[i, 'code'])
+            trtrade_list_print = self.trtrade_list.copy()
+            for i in trtrade_list_print.index: 
+                trtrade_list_print.at[i, 'name'] = self.km.get_master_code_name(trtrade_list_print.at[i, 'code'])
 
             if to_file == True: 
                 f = open(STATUS_REPORT_FILE, 'a')
                 f.write('trtrade_list (up to last 75 items): \n')
-                f.write(tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='simple'))
+                f.write(tabulate(trtrade_list_print.loc[-75:, :], headers='keys', showindex=False, tablefmt='simple'))
                 f.write('\n')
                 f.close()
 
                 m = open(STATUS_REPORT_MOBILE, 'a')
                 m.write('trtrade_list (last 75 items): \n')
-                m.write(tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='simple'))
+                m.write(tabulate(trtrade_list_print.loc[-75:, :], headers='keys', showindex=False, tablefmt='simple'))
                 m.write('\n')
                 m.close()
             else: 
-                tl_print('trtrade_list (up to last 75 items): \n', tabulate(self.trtrade_list.loc[-75:, :], headers='keys', showindex=False, tablefmt='psql'))
+                tl_print('trtrade_list (up to last 75 items): \n', tabulate(trtrade_list_print.loc[-75:, :], headers='keys', showindex=False, tablefmt='psql'))
         else: 
             if to_file == True: 
                 f = open(STATUS_REPORT_FILE, 'a')
@@ -690,19 +717,19 @@ class TrTrader():
         # Return rate of TrTrading
         # Realized return total 
         # Number of active items
-        cash_account = format(int(int(self.km.get_cash(ACCOUNT_NO))/1000), ',')
+        cash_account = format(int(round(self.km.get_cash(ACCOUNT_NO))/1000), ',')
         mb_active = self.master_book.loc[self.master_book['active']]
-        cash_trtrading = format(int(self.master_book.at[self.master_book.index[-1], 'cash']/1000), ',') # there might not be any active item.
+        cash_trtrading = format(int(round(self.master_book.at[self.master_book.index[-1], 'cash']/1000)), ',') # there might not be any active item.
         tr_invested_total = mb_active['invtotal'].sum()
         tr_cvalue_total = mb_active['cvalue'].sum()
         if tr_invested_total > 0: 
             tr_return_rate = tr_cvalue_total/tr_invested_total -1
         else: 
             tr_return_rate = 0
-        tr_invested_total = format(int(tr_invested_total/1000), ',')
-        tr_cvalue_total = format(int(tr_cvalue_total/1000), ',')
+        tr_invested_total = format(int(round(tr_invested_total/1000)), ',')
+        tr_cvalue_total = format(int(round(tr_cvalue_total/1000)), ',')
         tr_return_rate = format(tr_return_rate*100, '.2f')
-        tr_realized_return_total = format(int(mb_active['ret'].sum()/1000), ',')
+        tr_realized_return_total = format(int(round(self.master_book['ret'].sum()/1000)), ',')
         no_active = len(mb_active)
         t = time.strftime("%Y%m%d %H:%M:%S") 
 
@@ -742,6 +769,7 @@ class TrTrader():
         
 if __name__ == "__main__": 
     app = QApplication(sys.argv)
+    USE_SIMULATOR = False
     trtrader = TrTrader()
     trtrader.run_() 
     trtrader.close_()

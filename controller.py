@@ -13,15 +13,15 @@ HOLIDAYS = list(map(lambda x: datetime.strptime(x, '%Y%m%d').date(), HOLIDAYS_20
 TRTRADE_RUN_TIME = "09:15"
 TRTRADE_FIN_TIME = "15:15"
 VERSION_CHK_TIME = (datetime.now() + timedelta(seconds = 10)).strftime("%H:%M:%S") 
-# TRTRADE_RUN_TIME = (datetime.now() + timedelta(minutes = 0.5)).strftime("%H:%M:%S") 
-# TRTRADE_FIN_TIME = (datetime.now() + timedelta(minutes = 3)).strftime("%H:%M:%S") 
+TRTRADE_RUN_TIME = (datetime.now() + timedelta(minutes = 0.5)).strftime("%H:%M:%S") 
+TRTRADE_FIN_TIME = (datetime.now() + timedelta(minutes = 3)).strftime("%H:%M:%S") 
 TRTRADE_RUN_INTERVAL = 10 # second
 RUN_PENDING_INTERVAL = 10
 ################################################################################################
 TRTRADE_RUN_DTIME = dtime.fromisoformat(TRTRADE_RUN_TIME)
 TRTRADE_FIN_DTIME = dtime.fromisoformat(TRTRADE_FIN_TIME)
 ################################################################################################
-MAX_VERSION_CHECK_TIME = 2*60
+MAX_VERSION_CHECK_TIME = 2*60 
 VERCHECK_SUCCESS_LOOP_INTERVAL = 5
 WORKING_DAY_DEFINITION = [0, 1, 2, 3, 4, 5, 6]  # starts from MON... 
 SYS_EXIT_ON_VERSION_CHECK_FAILURE = False

@@ -13,6 +13,7 @@ API_REQ_TIME_INTERVAL = 0.3 # min: 0.2
 with open(TRTRADER_SETTINGS_FILE) as f:
     tsf = json.load(f)
     WORKING_DIR_PATH = tsf['WORKDING_DIR'] 
+PRINT_TO_SCREEN = False
 ################################################################################################
 TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
 def tl_print(*args, **kwargs):
@@ -21,7 +22,8 @@ def tl_print(*args, **kwargs):
     for i in args[1:]: 
         msg += " " + str(i)
     ff.write(msg + "\n")
-    print(*args, **kwargs)
+    if PRINT_TO_SCREEN:
+        print(*args, **kwargs)
     ff.close()
 
 class Kiwoom(QAxWidget):
@@ -69,11 +71,11 @@ class Kiwoom(QAxWidget):
         self.tr_event_loop.exec_()
         if res == 0 and self.order_number != "": # success  
             # hoga: fixed 00, mkt 03
-            tl_print("[SendOrder]", time.strftime(" %m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no))
+            tl_print("[SendOrder]", time.strftime(" %Y%m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no))
             self.chejan_event_loop = QEventLoop()
             self.chejan_event_loop.exec_()
         else:
-            tl_print("--- SendOrder Fail:", "("+str(res)+")", time.strftime(" %m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no))
+            tl_print("--- SendOrder Fail:", "("+str(res)+")", time.strftime(" %Y%m%d %H:%M:%S"), self.order_number, str(acc_no), str(order_type), str(code), str(quantity), str(price), str(hoga), str(order_no))
         time.sleep(API_REQ_TIME_INTERVAL)
         return (res, self.order_number)
 
@@ -102,7 +104,7 @@ class Kiwoom(QAxWidget):
                     p_sum = self._chejan_avg_price_data[0][0]*self._chejan_avg_price_data[0][1]
                     for i in range(1, len(self._chejan_avg_price_data)):
                         p_sum = p_sum + (self._chejan_avg_price_data[i][0] - self._chejan_avg_price_data[i-1][0])*self._chejan_avg_price_data[i][1]
-                    avg_price = int(p_sum/int(oq))
+                    avg_price = int(round(p_sum/int(oq)))
                 self.chejan_finish_data = [stock_code, stock_name, buy_sell, avg_price, int(pv), tr_time]
                 self._chejan_avg_price_data = []
                 tl_print(" average price: " + format(avg_price, ','))

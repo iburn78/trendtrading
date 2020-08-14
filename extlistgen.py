@@ -37,8 +37,8 @@ class ExtListGen():
         register_matplotlib_converters()
     
     def run_(self): 
-        self.external_list.loc[len(self.external_list)] = ['005930', 0, 'buy', 'yet'] # in EXCEPT 
-        self.external_list.loc[len(self.external_list)] = ['326030', 0, 'buy', 'yet'] # in EXCEPT 
+        self.external_list.loc[len(self.external_list)] = ['005930', 0, 'buy', 'yet'] 
+        self.external_list.loc[len(self.external_list)] = ['326030', 0, 'buy', 'yet']
 
         # self.test_plot()
         self.write_external_list_to_Excel(self.external_list) # empty EXTERNAL LIST FILE will be removed
