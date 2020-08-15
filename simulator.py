@@ -13,13 +13,15 @@ PLT_PAUSE_DURATION = 0.1
 code_to_test = '005930.ks'
 start_date = '2019-07-06'
 end_date = time.strftime("%Y-%m-%d")
-code_dict = 
+code_dict = {'005930': '삼성전자'}
 
 def get_target_data(code_to_test, start_date, end_date):
     target = yf.Ticker(code_to_test)
     target_data = target.history(start=start_date, end=end_date, auto_adjust=False) # volume in number of stocks
     #### manipulation part ####
     target_data.loc['2019-08-01':'2019-08-31'] = target_data.loc['2019-08-01':'2019-08-31']/2 
+    for i in range(101,121): 
+        target_data.iloc[i] = target_data.iloc[i]*(1+(i-100)/10)
     ####
     return target_data
 
@@ -32,6 +34,7 @@ class SimController():
             pass
         self.initial_cash = START_CASH
         self.target_data = get_target_data(code_to_test, start_date, end_date)
+        self.sim_time = time.asctime(time.strptime(start_date, "%Y-%m-%d"))
         self.queue = multiprocessing.Queue()
         self.plot_proc = multiprocessing.Process(target=self.data_plot, args=(self.target_data,self.queue), kwargs={'name':code_to_test}, daemon=True)
         self.plot_proc.start()
@@ -53,7 +56,7 @@ class SimController():
             del self.tt
         self.queue.put(["Done",])
         print("Simulation Done - close plot to finish")
-        # self.plot_proc.join()
+        self.plot_proc.join()
 
     def run_speedy_(self): # this function is to define simulation scheme  
         self.cur_price = self.target_data.iloc[0][0]
@@ -72,7 +75,7 @@ class SimController():
         del self.tt
         self.queue.put(["Done",])
         print("Simulation Done - close plot to finish")
-        # self.plot_proc.join()
+        self.plot_proc.join()
         
     def ext_list_gen(self): 
         external_list = pd.DataFrame({'code':pd.Series([], dtype='str'),
@@ -134,8 +137,8 @@ class Simulator(SimController):
         self.simctrl = simctrl
 
     def get_master_code_name(self, code):  
-        if code in list(self.simctrl.code_dict.keys()):
-            return self.simctrl.code_dict[code]
+        if code in list(code_dict.keys()):
+            return code_dict[code]
         return 'name_na'    
 
     def send_order(self, rqname, screen_no, acc_no, order_type, code, quantity, price, hoga, order_no): 
