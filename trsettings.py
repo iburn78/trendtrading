@@ -16,7 +16,6 @@ EXTERNAL_TRTRADER_SETTINGS_FILE = 'trtrader_settings.dat' ### TRTRADE_SETTINGS_F
 TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
 MASTER_BOOK_FILE = 'data/master_book.xlsx'
 MASTER_BOOK_BACKUP_FILE = 'data/backup/master_book.xlsx'
-BOUNDS_FILE = 'bounds.xlsx'
 with open(WORKING_DIR_PATH+EXTERNAL_TRTRADER_SETTINGS_FILE) as f:
     tsf = json.load(f)
     ACCOUNT_NO = tsf['ACCOUNT_NO'] 
@@ -85,28 +84,28 @@ def bounds_prep(draw=False):
     # ub_price: to-be price for reinvestment made 
     # lb_price: to-be price for sell off
     # llb_price: to-be price for LLB suspend
-    ub_price = [float(format((1+u_step)**(1+i), '.5f')) for i in range(MAX_ELEVATION+1)]
-    lb_price = [float(format(ub_price[i]/(1+u_step)*(1+l_step), '.5f')) for i in range(MAX_ELEVATION+1)]
-    llb_price = [float(format(ub_price[i]/(1+u_step)*(1+ll_step), '.5f')) for i in range(MAX_ELEVATION+1)]
+    ub_price = [round((1+u_step)**(1+i), 4) for i in range(MAX_ELEVATION+1)]
+    lb_price = [round(ub_price[i]/(1+u_step)*(1+l_step), 4) for i in range(MAX_ELEVATION+1)]
+    llb_price = [round(ub_price[i]/(1+u_step)*(1+ll_step), 4) for i in range(MAX_ELEVATION+1)]
     # avg_price: avg_price after the current period's investment made
     for i in range(MAX_ELEVATION+1):
         if i == 0: 
             avg_price = [1]
         elif i <= MAX_REINVESTMENT: 
-            avg_price.append(float(format((i+1)/((i)/avg_price[i-1] + 1/ub_price[i-1]), '.5f')))
+            avg_price.append(round((i+1)/((i)/avg_price[i-1] + 1/ub_price[i-1]), 4))
         else: 
             avg_price.append(avg_price[i-1])
     # ub: to-be return rate to reach ub_price
     # lb: to-be return rate to sell off
     # llb: to-be return rate to LLB suspend
-    ub = [float(format((ub_price[i]-avg_price[i])/avg_price[i], '.5f')) for i in range(MAX_ELEVATION+1)]
-    lb = [float(format((lb_price[i]-avg_price[i])/avg_price[i], '.5f')) for i in range(MAX_ELEVATION+1)]
-    llb = [float(format((llb_price[i]-avg_price[i])/avg_price[i], '.5f')) for i in range(MAX_ELEVATION+1)]
+    ub = [round((ub_price[i]-avg_price[i])/avg_price[i], 4) for i in range(MAX_ELEVATION+1)]
+    lb = [round((lb_price[i]-avg_price[i])/avg_price[i], 4) for i in range(MAX_ELEVATION+1)]
+    llb = [round((llb_price[i]-avg_price[i])/avg_price[i], 4) for i in range(MAX_ELEVATION+1)]
     llb[-1] = -1 # ensure to sell off at MAX_ELEVATION
     # rr: return rate after the current period's investemnt made 
     rr = [0]
     for i in range(MAX_ELEVATION): 
-        rr.append(float(format((ub_price[i]-avg_price[i+1])/avg_price[i+1],'.5f')))
+        rr.append(round((ub_price[i]-avg_price[i+1])/avg_price[i+1], 4))
 
     bounds_table = pd.DataFrame([ub, lb, llb], index = ['UB', 'LB', 'LLB'], columns = range(MAX_ELEVATION+1))
     if draw: 

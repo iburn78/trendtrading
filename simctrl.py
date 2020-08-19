@@ -23,7 +23,7 @@ class SimController():
             self.tt = TrTrader(self)  # a new TrTrader is created each day and exits
             for time_of_day in ['Open', 'Low', 'High', 'Close']:
                 self.sim_time = time.asctime(time.strptime(cur_date.strftime("%Y-%m-%d")+" "+ HR_DICT[time_of_day], "%Y-%m-%d %H:%M"))
-                self.cur_price = int(self.target_data.loc[cur_date][time_of_day])
+                self.cur_price = int(round(self.target_data.loc[cur_date][time_of_day]))
                 if self.tt.run_():
                     # tr_data: [stock_code, stock_name, buy_sell, avg_price, int(pv), tr_time, [invtotal, ret]]
                     for i in self.tt.tr_data:
@@ -42,7 +42,7 @@ class SimController():
         for cur_date in self.target_data.index:
             for time_of_day in ['Open', 'Low', 'High', 'Close']:
                 self.sim_time = time.asctime(time.strptime(cur_date.strftime("%Y-%m-%d")+" "+ HR_DICT[time_of_day], "%Y-%m-%d %H:%M"))
-                self.cur_price = int(self.target_data.loc[cur_date][time_of_day])
+                self.cur_price = int(round(self.target_data.loc[cur_date][time_of_day]))
                 if self.tt.run_(): # if trade happens
                     # tr_data: [stock_code, stock_name, buy_sell, avg_price, int(pv), tr_time, [invtotal, ret]]
                     for i in self.tt.tr_data:
@@ -118,7 +118,7 @@ class SimController():
         sc = speedychecker()
         sc.run_()
         if sc.stat['cash'] == self.mb_lastline['cash'] and sc.stat['t_inv'] == self.mb_lastline['invtotal']:
-            sm_print(f"checking success cash {format(sc.stat['cash'], ',')} and total invested principal {format(sc.stat['t_inv'], ',')}")
+            sm_print(f"Checking success: cash {format(sc.stat['cash'], ',')} and total invested principal {format(sc.stat['t_inv'], ',')}")
         else: 
             sm_print("SPEEDY CHECKER MISMATCHES ######################################")
 

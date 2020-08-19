@@ -13,13 +13,13 @@ class speedychecker():
         for cur_date in self.target_data.index:
             for time_of_day in ['Open', 'Low', 'High', 'Close']:
                 # self.sim_time = time.asctime(time.strptime(cur_date.strftime("%Y-%m-%d")+" "+ HR_DICT[time_of_day], "%Y-%m-%d %H:%M"))
-                self.speedy_logic(self.target_data.loc[cur_date][time_of_day], cur_date.strftime("%Y%m%d ") + time_of_day[0])
+                self.speedy_logic(round(self.target_data.loc[cur_date][time_of_day]), cur_date.strftime("%Y%m%d ") + time_of_day[0])
         self.mb = self.mb.astype({'vol':'int', 'avg_price':'int', 'cur_price':'int', 'retrate':'float', 'ninv':'int', 'time': 'str', 'cash':'int'})
         sm_print(self.mb)
-        sm_print(f'cash: {format(self.stat["cash"], ",")}')
-        sm_print(f'tinv: {format(self.stat["t_inv"], ",")}')
-        sm_print(f'tpft: {format(self.stat["c_val"]+self.stat["cash"]-START_CASH, ",")}')
-        sm_print(f'rate: {format(self.stat["t_rr"]-100, ".4f")} %')
+        sm_print(f'cash: {format(int(self.stat["cash"]), ",")}')
+        sm_print(f'tinv: {format(int(self.stat["t_inv"]), ",")} - principal amount invested')
+        sm_print(f'tpft: {format(int(self.stat["c_val"]+self.stat["cash"]-START_CASH), ",")} - latest price reflected')
+        sm_print(f'rate: {format(self.stat["t_rr"]-100, ".4f")} % - latest price reflected')
         if self.suspended: 
             sm_print('(Note: suspended item exists)')
 
@@ -34,15 +34,15 @@ class speedychecker():
                 rr = round((cur_price*(1-TAX_RATE-FEE_RATE)/(l.avg_price*(1+FEE_RATE)) - 1), 4)
                 if not self.suspended and rr <= self.bounds_table.at['LLB', int(l.ninv)]:
                     sm_print(f'{t}: LLB suspend initiated with return rate {rr}')
-                    self.stat['c_val'] = int(round(cur_price*(l.vol)*(1-TAX_RATE-FEE_RATE)))
-                    self.stat['t_rr'] = float(format((self.stat['cash']+self.stat['c_val'])/START_CASH*100, '.4f'))
+                    self.stat['c_val'] = round(cur_price*(l.vol)*(1-TAX_RATE-FEE_RATE))
+                    self.stat['t_rr'] = round((self.stat['cash']+self.stat['c_val'])/START_CASH*100, 4)
                     self.suspended = True
                     return  
                 if self.suspended:
                     if rr >= self.bounds_table.at['LB', int(l.ninv)]:
                         sm_print(f'{t}: Released from LLB suspend with return rate {rr}')
-                        self.stat['c_val'] = int(round(cur_price*(l.vol)*(1-TAX_RATE-FEE_RATE)))
-                        self.stat['t_rr'] = float(format((self.stat['cash']+self.stat['c_val'])/START_CASH*100, '.4f'))
+                        self.stat['c_val'] = round(cur_price*(l.vol)*(1-TAX_RATE-FEE_RATE))
+                        self.stat['t_rr'] = round((self.stat['cash']+self.stat['c_val'])/START_CASH*100, 4)
                         self.suspended = False
                     return
 
@@ -57,31 +57,25 @@ class speedychecker():
                         self.sell(cur_price, l.vol, t)
 
     def purchase(self, size, cur_price, pvol, pavg_price, ninv, t = ''):
-        vol = int(round(size/cur_price))
-        avg_price = int(round((pvol*pavg_price + vol*cur_price)/(pvol+vol)))
+        vol = round(size/cur_price)
+        avg_price = round((pvol*pavg_price + vol*cur_price)/(pvol+vol))
         rr = round((cur_price*(1-TAX_RATE-FEE_RATE)/(avg_price*(1+FEE_RATE)) - 1), 4)
-        cash = int(round(self.stat['cash'] - vol*cur_price*(1+FEE_RATE)))
+        cash = self.stat['cash'] - round(vol*cur_price*(1+FEE_RATE))
         record = [pvol+vol, avg_price, cur_price, rr, ninv+1, t, cash]
         self.mb.loc[len(self.mb)] = record
         self.stat['cash'] = cash 
-        self.stat['t_inv'] = int(round(self.stat['t_inv'] + vol*cur_price*(1+FEE_RATE)))
-        self.stat['c_val'] = int(round(cur_price*(pvol+vol)*(1-TAX_RATE-FEE_RATE)))
-        self.stat['t_rr'] = float(format((self.stat['cash']+self.stat['c_val'])/START_CASH*100, '.4f'))
+        self.stat['t_inv'] = round(self.stat['t_inv'] + vol*cur_price*(1+FEE_RATE))
+        self.stat['c_val'] = round(cur_price*(pvol+vol)*(1-TAX_RATE-FEE_RATE))
+        self.stat['t_rr'] = round((self.stat['cash']+self.stat['c_val'])/START_CASH*100, 4)
 
     def sell(self, cur_price, pvol, t=''): 
-        cash = int(round(self.stat['cash'] + pvol*cur_price*(1-TAX_RATE-FEE_RATE)))
+        cash = self.stat['cash'] + round(pvol*cur_price*(1-TAX_RATE-FEE_RATE))
         record = [0, 0, cur_price, 0, -1, t, cash]
         self.mb.loc[len(self.mb)] = record
         self.stat['cash'] = cash
         self.stat['t_inv'] = 0
         self.stat['c_val'] = 0
-        self.stat['t_rr'] = float(format(self.stat['cash']/START_CASH*100, '.4f'))
-
-    def bounds_prep(self):
-        self.bounds_table = pd.read_excel(BOUNDS_FILE, index_col=None).iloc[29:32, 1:13]
-        self.bounds_table.columns = ['var', 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        ### ENSURE TO MATCH LENGTH with MAX_ELEVATION
-        self.bounds_table = self.bounds_table.set_index('var')
+        self.stat['t_rr'] = round(self.stat['cash']/START_CASH*100, 4)
 
 if __name__ == '__main__': 
     sc = speedychecker()
