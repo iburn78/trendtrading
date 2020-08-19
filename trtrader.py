@@ -1,34 +1,18 @@
-import sys, os
-from Kiwoom import *
 import xlsxwriter
 import random
-import json
 import urllib.request
 from bs4 import BeautifulSoup
-from datetime import datetime
-from simulator import *
+from trsettings import *
+from Kiwoom import *
+from simulator import * 
 
-USE_SIMULATOR = True
 ################################################################################################
-MASTER_BOOK_FILE = 'data/master_book.xlsx'
-MASTER_BOOK_BACKUP_FILE = 'data/backup/master_book.xlsx'
-BOUNDS_FILE = 'bounds.xlsx'
 EXTERNAL_LIST_FILE = 'data/external_list.xlsx'
 EXTERNAL_LIST_BACKUP_FILE = 'data/backup/external_list.xlsx'
 STATUS_REPORT_FILE = 'data/trtrader_status.txt'
 STATUS_REPORT_MOBILE = 'data/trtrader_status_brief.txt'
 EXTERNAL_COMMAND_URL = "http://13.209.99.197/command.html"
 EXT_COMM_SUSPEND_SLEEPING_TIME = 10
-################################################################################################
-START_CASH = 300000000
-TICKET_SIZE = 3000000       # Target amount to be purchased in KRW
-
-if USE_SIMULATOR:
-    FEE_RATE = 0.00015        # real FEE_RATE
-    TAX_RATE = 0.003          # real TAX_RATE (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products)
-else: 
-    FEE_RATE = 0.0035           # for Kiwoom Test Server
-    TAX_RATE = 0.0025           # for Kiwoom Test Server (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
 ################################################################################################
 CREATE_NEW_MASTER_BOOK = False  # False is recommended as loading from existing stock list involves guessing on nreinv and bounds
                                 # Note: refer to the note below TRENDTRADE_EXCEPT_LIST
@@ -55,13 +39,6 @@ EXTERNAL_COMMAND_LIST = ['suspend', 'resume', 'stop', 'ping']
                                 # one_word_command
                                 # (other lines are ignored)
 ################################################################################################
-MIN_CASH_FOR_PURCHASE_RATE = 1.5
-MIN_CASH_FOR_PURCHASE = TICKET_SIZE*MIN_CASH_FOR_PURCHASE_RATE
-with open(WORKING_DIR_PATH+TRTRADER_SETTINGS_FILE) as f:
-    tsf = json.load(f)
-    ACCOUNT_NO = tsf['ACCOUNT_NO'] 
-MAX_REINVESTMENT = 4        # total 5 investments max
-MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is modified
 
 # items in dec_made: new_ent (new_ent), reinv (reinvested), a_sold (a_sold), p_sold (partial_sold), 
 #                    SUSPEND (LLB_suspend), released (suspend_release), bd_elev (bound_elevated), loaded, EXCEPT (loading_exception)
@@ -89,7 +66,7 @@ class TrTrader():
         if not self.km.connect_status: 
             tl_print("System exits")
             sys.exit()
-        self.bounds_prep()
+        self.bounds_table = bounds_prep()
         self.prev_mbf_exists = os.path.exists(MASTER_BOOK_FILE)
         self.trtrade_list = pd.DataFrame(columns = ['code', 'amount', 'buy_sell', 'note'])
         self.master_book_initiator(START_CASH, replace = CREATE_NEW_MASTER_BOOK)
@@ -111,7 +88,8 @@ class TrTrader():
         self.load_external_trade_list(cash)
         trtrade_list_yetitems = self.trtrade_list.loc[self.trtrade_list['note']=='yet']
         if len(trtrade_list_yetitems) == 0: 
-            # print(time.strftime("t%M:%S"), end="\r")  # Exception for trade_log_print (tl_print)
+            if PRINT_TO_SCREEN:
+                print(time.strftime("t%M:%S"), end="\r")  # Exception for trade_log_print (tl_print)
             if USE_SIMULATOR:
                 return False
         else: 
@@ -544,11 +522,6 @@ class TrTrader():
         new_line.index = [len(self.master_book)]
         self.master_book = self.master_book.append(new_line)
     
-    def bounds_prep(self):
-        self.bounds_table = pd.read_excel(BOUNDS_FILE, index_col=None).iloc[29:32, 1:13]
-        self.bounds_table.columns = ['var', 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        self.bounds_table = self.bounds_table.set_index('var')
-
     def bounds(self, nr): # nr = number of repurchase
         UB = round(self.bounds_table.at['UB', nr], 4)
         LB = round(self.bounds_table.at['LB', nr], 4)
@@ -721,7 +694,7 @@ class TrTrader():
         # Return rate of TrTrading
         # Realized return total 
         # Number of active items
-        cash_account = format(int(round(self.km.get_cash(ACCOUNT_NO))/1000), ',')
+        cash_account = format(int(round(int(self.km.get_cash(ACCOUNT_NO))/1000)), ',')
         mb_active = self.master_book.loc[self.master_book['active']]
         cash_trtrading = format(int(round(self.master_book.at[self.master_book.index[-1], 'cash']/1000)), ',') # there might not be any active item.
         tr_invested_total = mb_active['invtotal'].sum()

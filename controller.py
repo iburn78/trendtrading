@@ -1,9 +1,12 @@
-from Kiwoom import *
-from trtrader import *
-from datetime import datetime, timedelta, time as dtime
-import time 
+from datetime import timedelta, time as dtime
 import schedule
 import multiprocessing 
+from trsettings import *
+from trtrader import *
+
+### START WITH A NEW MASTER BOOK ###
+### LEAVE: CREATE_NEW_MASTER_BOOK = False ###
+remove_master_book_onetime_for_clean_initiation()
 
 ################################################################################################
 HOLIDAYS_2020 = ['20200930', '20201001', '20201002', '20201009', '20201225']

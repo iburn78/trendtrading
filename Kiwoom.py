@@ -1,30 +1,9 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
-import time
-import pandas as pd
-from tabulate import tabulate 
-import json
+from trsettings import *
 
-################################################################################################
-TRTRADER_SETTINGS_FILE = 'trtrader_settings.dat'
 API_REQ_TIME_INTERVAL = 0.3 # min: 0.2
-################################################################################################
-with open(TRTRADER_SETTINGS_FILE) as f:
-    tsf = json.load(f)
-    WORKING_DIR_PATH = tsf['WORKDING_DIR'] 
-PRINT_TO_SCREEN = False
-################################################################################################
-TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
-def tl_print(*args, **kwargs):
-    ff = open(TRADE_LOG_FILE, 'a')
-    msg = str(args[0])
-    for i in args[1:]: 
-        msg += " " + str(i)
-    ff.write(msg + "\n")
-    if PRINT_TO_SCREEN:
-        print(*args, **kwargs)
-    ff.close()
 
 class Kiwoom(QAxWidget):
     def __init__(self):
