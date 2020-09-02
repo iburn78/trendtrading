@@ -31,4 +31,4 @@ class Simulator():
         return stock_list
 
     def get_cash(self, ACCOUNT_NO):   
-        return self.simctrl.initial_cash
+        return 0 # should return cash at account.... but not critical in Simulator

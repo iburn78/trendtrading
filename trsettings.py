@@ -20,6 +20,10 @@ with open(WORKING_DIR_PATH+EXTERNAL_TRTRADER_SETTINGS_FILE) as f:
     tsf = json.load(f)
     ACCOUNT_NO = tsf['ACCOUNT_NO'] 
 ################################################################################################
+U_STEP = 0.15
+L_STEP = -0.05
+LL_STEP = -0.30
+################################################################################################
 START_CASH = 300000000
 TICKET_SIZE = 3000000       # Target amount to be purchased in KRW
 MIN_CASH_FOR_PURCHASE_RATE = 1.5
@@ -37,20 +41,22 @@ else:
     FEE_RATE = 0.0035           # for Kiwoom Test Server
     TAX_RATE = 0.0025           # for Kiwoom Test Server (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products) 
 ################################################################################################
-code_dict = {'005930': '삼성전자'}
 HR_DICT = {'Open': '09:00', 'Low': '11:00', 'High': '13:00', 'Close': '15:30'}
-code_to_test = '005930.ks'
-code_dict = {'005930': '삼성전자'}
-start_date = '2019-07-06'
-end_date = time.strftime("%Y-%m-%d")
+code_dict = {'005930': '삼성전자', '000660': 'SK하이닉스', '105560': 'KB금융'}
+code_to_test = '105560'
+code_to_test_yf = code_to_test+'.ks'
+start_date = '2013-01-01'
+end_date = '2020-08-21' # time.strftime("%Y-%m-%d")
 ##################################################################
-def get_target_data(code_to_test, start_date, end_date):
-    target = yf.Ticker(code_to_test)
+def get_target_data(code_to_test_yf, start_date, end_date):
+    target = yf.Ticker(code_to_test_yf)
     target_data = target.history(start=start_date, end=end_date, auto_adjust=False) # volume in number of stocks
     #### manipulation part ####
     target_data.loc['2019-08-01':'2019-08-31'] = target_data.loc['2019-08-01':'2019-08-31']/2 
     for i in range(101,121): 
         target_data.iloc[i] = target_data.iloc[i]*(1+(i-100)/10)
+    for i in range(121,141): 
+        target_data.iloc[i] = target_data.iloc[i]*(1+(140-i)/10)
     ###########################
     return target_data
 
@@ -77,9 +83,9 @@ def remove_master_book_onetime_for_clean_initiation():
         os.rename(WORKING_DIR_PATH+MASTER_BOOK_FILE, WORKING_DIR_PATH+n+t+'.xlsx')
 
 def bounds_prep(draw=False):
-    u_step = 0.1
-    l_step = -0.05
-    ll_step = -0.15
+    u_step = U_STEP # 0.15
+    l_step = L_STEP # -0.05
+    ll_step = LL_STEP # -0.30
     # index: current period or number of reinv since initial investment / 0: initial investement made / 1: reinvestment made ... etc
     # ub_price: to-be price for reinvestment made 
     # lb_price: to-be price for sell off

@@ -3,7 +3,7 @@ from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
 from trsettings import *
 
-API_REQ_TIME_INTERVAL = 0.3 # min: 0.2
+API_REQ_TIME_INTERVAL = 0.21 # min: 0.2
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -148,6 +148,12 @@ class Kiwoom(QAxWidget):
             
         elif rqname == "send_order_req":
             self.order_number = self._comm_get_data(trcode, "", rqname, 0, "주문번호")
+
+        elif rqname == "opt10014_req": 
+            self.opt10014_multi_data_set = self._get_comm_data_ex("opt10014", "공매도추이요청")
+
+        elif rqname == "opt10059_req": 
+            self.opt10059_multi_data_set = self._get_comm_data_ex("opt10059", "종목별투자자기관별요청")
 
         else: 
             tl_print("TR request name not matching: ", screen_no, rqname, trcode, record_name, next_, unused1, unused2, unused3, unused4)
