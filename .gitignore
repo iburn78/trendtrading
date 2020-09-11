@@ -147,4 +147,7 @@ dmypy.json
 
 /data/backup
 /data
+/graphs
+/sta
+/etc
 

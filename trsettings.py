@@ -8,6 +8,9 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters # For datetime series converting.... 
 import multiprocessing
+
+pd.set_option('display.max_rows', None)
+################################################################################################
 PLT_PAUSE_DURATION = 0.1
 PLT_SHOW_DURATION = 10
 ################################################################################################

@@ -1,163 +1,204 @@
 from Kiwoom import *
+import sys
+import sqlite3
+from stadownload import BYINVESTOR_DB, INFO_DB, INFO_DB_TABLE
 
-app = QApplication([''])
-k = Kiwoom()
+STA_ARG_DICT_SPLIT_EXCEPTION = {
+    '005930': {'split_date':'20180504', 'split_ratio':50},  
+    '005935': {'split_date':'20180504', 'split_ratio':50}, 
+    '000100': {'split_date':'20200408', 'split_ratio':5}
+    }
 
-STA_CODE = '005930'
-STA_DATE_PERIOD = '0'
-STA_START_DATE = '0' # ignored if STA_DATE_PERIOD = '0'
-STA_END_DATE = '20200828'
-STA_UNIT = '1'
-STA_NUMBER_TO_RECEIVE_NEXTPAGE = 15
+class STA():
 
+    def __init__(self):
+        self.infodb = self.read_infodb()
+        self.tblist, self.codelist = self.read_bicode()
+        i = j = 0
+        for code in self.codelist[j:]: 
+            print('pricessing:', code, i)
+            i += 1
+            [bi_net, bi_buy, bi_sell] = self.bi_stock_split_adjustment(*self.read_bidb(code), code)
+            bi_net = self.reverse_date(bi_net)
+            bi_buy = self.reverse_date(bi_buy)
+            bi_sell = self.reverse_date(bi_sell)
+            bis = self.bi_share_adjustment(code, bi_net, bi_buy, bi_sell)
+            self.bi_graph_processing(code, *bis)
 
-def shortsales_record(): 
-    # opt10014 Short Selling  ---------------------------------
-    k.set_input_value('종목코드', STA_CODE)
-    k.set_input_value('시간구분', STA_DATE_PERIOD) # 0: by date, 1: by period
-    k.set_input_value('시작일자', STA_START_DATE) # if by date, this input ignored
-    k.set_input_value('종료일자', STA_END_DATE) # should be later than start date
-    k.comm_rq_data('opt10014_req', 'opt10014', 0, '2000')
-    ss = pd.DataFrame(k.opt10014_multi_data_set)
+    def read_infodb(self):
+        con = sqlite3.connect(INFO_DB)
+        infodb = pd.read_sql_query(f'select * from {INFO_DB_TABLE}', con)
+        con.close()
+        return infodb
+    
+    def read_bicode(self): 
+        con = sqlite3.connect(BYINVESTOR_DB)
+        cur = con.cursor()
+        tl = cur.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
+        con.close()
+        tablelist = [t[0] for t in tl]
+        return tablelist, list(dict.fromkeys([i[-6:] for i in tablelist])) # extracts only code without duplications
+        
+    def read_bidb(self, code):
+        tblist_code = []
+        for i in self.tblist: 
+            if code in i: tblist_code.append(i)
 
-    for i in range(STA_NUMBER_TO_RECEIVE_NEXTPAGE):
-        if k.remained_data:
-            k.set_input_value('종목코드', STA_CODE)
-            k.set_input_value('시간구분', STA_DATE_PERIOD)
-            k.set_input_value('시작일자', STA_START_DATE)
-            k.set_input_value('종료일자', STA_END_DATE)
-            k.comm_rq_data('opt10014_req', 'opt10014', 2, '2000')
-            ss =ss.append(pd.DataFrame(k.opt10014_multi_data_set)) 
+        con = sqlite3.connect(BYINVESTOR_DB)
+        bi_buy = pd.DataFrame()
+        bi_sell = pd.DataFrame()
+        for t in tblist_code:
+            a = pd.read_sql_query(f"SELECT * from {t}", con)
+            if 'buy' in t: bi_buy = a
+            if 'sell' in t: bi_sell = a
+        con.close()
+        if len(bi_buy) == 0 or len(bi_sell) == 0: 
+            print("read_bidb error")
+            sys.exit()
+        
+        bi_net = bi_buy.copy()
+        bi_net.loc[:, 'ppl':] = bi_buy.loc[:, 'ppl':] + bi_sell.loc[:, 'ppl':]
+
+        return [bi_net, bi_buy, bi_sell]
+
+    # for 005930 Samsung, split date = '20180504', ratio = 50
+    # date is the first day with the splitted price
+    # ss: short sales
+    def ss_stock_split_adjustment(self, ss, code):
+        if code in STA_ARG_DICT_SPLIT_EXCEPTION: 
+            return self.ss_stock_split_adjustment_onetime(ss, **STA_ARG_DICT_SPLIT_EXCEPTION[code])
+        try:
+            sp = yf.Ticker(f'{code}.ks').splits
+        except:
+            print('split data not found in yfinance: ', code)
+            return self.ss_stock_split_adjustment_onetime(ss, '', 1)
+        for d in sp.index: 
+            ss = self.ss_stock_split_adjustment_onetime(ss, d.strftime("%Y%m%d"), sp[d])
+        return ss
+
+    def ss_stock_split_adjustment_onetime(self, ss, split_date, split_ratio=1):
+        ss.drop(ss.loc[ss.volume == 0].index, inplace = True)
+        if split_date in list(ss.date):
+            idx = ss.loc[ss.date == split_date].index[0]
+            top = ss.loc[ss.index <= idx].copy()
+            bot = ss.loc[ss.index > idx].copy()
+            bot.iloc[:, [1, 3, 9]] = bot.iloc[:, [1, 3, 9]]/split_ratio
+            bot.iloc[:, [5, 6]] = bot.iloc[:, [5, 6]]*split_ratio
+            bot.iloc[:, [1, 3, 9]] = bot.iloc[:, [1, 3, 9]].round().astype('int64')
+            return top.append(bot).reset_index(drop=True)
         else: 
-            break
+            return ss.reset_index(drop=True)
 
-    # incrate in %
-    # volume in a single share
-    # shortwgt in %
-    # shortamt in 1000
-    # clprice = closing price
-    ss.reset_index(drop=True, inplace=True)
-    ss = ss.astype({0: 'object', 1: 'int64', 2: 'int64', 3: 'int64', 4: 'float64', 5: 'int64', 6: 'int64', 7: 'float64', 8: 'int64', 9: 'int64'})
-    ss.rename(columns = {0: 'date', 1: 'clprice', 2: 'deltakey', 3: 'delta', 4: 'incrate', 5: 'volume', 6: 'shortvol', 7: 'shortwgt', 8: 'shortamt', 9: 'shortprice'}, inplace = True)
-    ss.clprice = ss.clprice.abs()
-    return ss
+    # for 005930 Samsung, split date = '20180504', ratio = 50
+    # date is the first day with the splitted price
+    # bi: by investors
+    def bi_stock_split_adjustment(self, bi_net, bi_buy, bi_sell, code):
+        if code in STA_ARG_DICT_SPLIT_EXCEPTION: 
+            bi_net = self.bi_stock_split_adjustment_onetime(bi_net, **STA_ARG_DICT_SPLIT_EXCEPTION[code])
+            bi_buy = self.bi_stock_split_adjustment_onetime(bi_buy, **STA_ARG_DICT_SPLIT_EXCEPTION[code])
+            bi_sell = self.bi_stock_split_adjustment_onetime(bi_sell, **STA_ARG_DICT_SPLIT_EXCEPTION[code])
+            return [bi_net, bi_buy, bi_sell]
+        try:
+            sp = yf.Ticker(f'{code}.ks').splits
+        except:
+            print('split data not found in yfinance: ', code)
+            bi_net = self.bi_stock_split_adjustment_onetime(bi_net, '', 1)
+            bi_buy = self.bi_stock_split_adjustment_onetime(bi_buy, '', 1)
+            bi_sell = self.bi_stock_split_adjustment_onetime(bi_sell, '', 1)
+            return [bi_net, bi_buy, bi_sell]
+        if len(sp>0): print('-----------------------------'); print(sp)
+        for d in sp.index: 
+            bi_net = self.bi_stock_split_adjustment_onetime(bi_net, d.strftime("%Y%m%d"), sp[d])
+            bi_buy = self.bi_stock_split_adjustment_onetime(bi_buy, d.strftime("%Y%m%d"), sp[d])
+            bi_sell = self.bi_stock_split_adjustment_onetime(bi_sell, d.strftime("%Y%m%d"), sp[d])
+        return [bi_net, bi_buy, bi_sell]
 
-def investor_history_singlecase(moneyquantity='2', netbuysell='0'):
-    # opt10059 By Investor  ---------------------------------
-    k.set_input_value('일자', STA_END_DATE)
-    k.set_input_value('종목코드', STA_CODE)
-    k.set_input_value('금액수량구분', moneyquantity)  # 1: money amount, 2: quantity of units
-    k.set_input_value('매매구분', netbuysell)  # 0: net, 1: buy, 2: sell
-    k.set_input_value('단위구분', STA_UNIT) # 1000: a thousand unit, 1: a unit
-    k.comm_rq_data('opt10059_req', 'opt10059', 0, '3000')
-    bi = pd.DataFrame(k.opt10059_multi_data_set)
-
-    for i in range(STA_NUMBER_TO_RECEIVE_NEXTPAGE):
-        if k.remained_data:
-            k.set_input_value('일자', STA_END_DATE)
-            k.set_input_value('종목코드', STA_CODE)
-            k.set_input_value('금액수량구분', moneyquantity)  # 1: money amount in 1M KRW, 2: quantity of units
-            k.set_input_value('매매구분', netbuysell)  # 0: net, 1: buy, 2: sell
-            k.set_input_value('단위구분', STA_UNIT) # 1000: a thousand unit, 1: a unit
-            k.comm_rq_data('opt10059_req', 'opt10059', 2, '3000')
-            bi =bi.append(pd.DataFrame(k.opt10059_multi_data_set))
+    def bi_stock_split_adjustment_onetime(self, bi, split_date, split_ratio=1, moneyquantity = '2'): 
+        bi.drop(bi.loc[bi.volume == 0].index, inplace = True)
+        if split_date in list(bi.date):
+            idx = bi.loc[bi.date == split_date].index[0]
+            top = bi.loc[bi.index <= idx].copy()
+            bot = bi.loc[bi.index > idx].copy()
+            bot.iloc[:, [1, 3]] = bot.iloc[:, [1, 3]]/split_ratio
+            bot.iloc[:, 5] = bot.iloc[:, 5]*split_ratio
+            if moneyquantity == '2': # if quantity
+                bot.iloc[:, 7:] = bot.iloc[:, 7:]*split_ratio
+            elif moneyquantity == '1': # if money
+                pass
+            else: 
+                print('stock_split parameter error')
+            bot.iloc[:, 1:] = bot.iloc[:, 1:].round().astype('int64')
+            return top.append(bot).reset_index(drop=True)
         else: 
-            break
+            return bi.reset_index(drop=True)
 
-    bi.reset_index(drop=True, inplace=True)
-    bi = bi.astype({0: 'object', 1: 'int64', 2: 'int64', 3: 'int64', 4: 'int64', 5: 'int64', 6: 'int64', 7: 'int64', 8: 'int64', 9: 'int64', 
-                    10: 'int64', 11: 'int64', 12: 'int64', 13: 'int64', 14: 'int64', 15: 'int64', 16: 'int64', 17: 'int64', 18: 'int64', 19: 'int64'})
-    bi.rename(columns = {0: 'date', 1: 'price', 2: 'deltakey', 3: 'delta', 4: 'incrate', 5: 'volume', 6: 'amount', 7: 'ppl', 8: 'fgn', 9: 't_inst', 10: 'fininv', 
-                        11: 'insu', 12: 'trust', 13: 'finetc', 14: 'bank', 15: 'pensvg', 16: 'prieqt', 17: 'nation', 18: 'corpetc', 19: 'fgnetc'}, inplace = True)
-    bi.price = bi.price.abs()
-    # incrate in basis point
-    # amount in million KRW
-    # t_inst = fininv + insu + trust + finetc + bank + pensvg + prieqt + nation
-    # volume or amount = ppl + fgn + t_inst +  corpetc + fgnetc when buy/sell(negative)
-    # 0  = ppl + fgn + t_inst + nation + corpetc + fgnetc when buy when net
-    return bi
+    def reverse_date(self, df):
+        return df.loc[::-1].reset_index(drop=True)
 
+    # fgn weight uses the latest number from kiwoom which may not match with analysis period
+    def bi_share_adjustment(self, code, bi_net, bi_buy, bi_sell):
+        MARGIN_FACTOR = 0.01
+        info = self.infodb.loc[self.infodb.code == code].to_dict(orient='records')[0]
+        fgn_adjustment = round(info['total_shares']*info['fgn_weight'] - bi_net['fgn'].sum())
+        fgnmin = bi_net['fgn'].cumsum().min()
+        if fgn_adjustment + fgnmin <= 0: 
+            print('###############')
+            fgn_adjustment = -fgnmin + info['trade_shares']*MARGIN_FACTOR
+            print('fgn_adjustment error:', code,'- set at -fgnmin + trade_share*MARGIN_FACTOR:', fgn_adjustment, 'where MARGIN_FACTOR:', MARGIN_FACTOR)
+        pplmin = bi_net['ppl'].cumsum().min()
+        instmin = bi_net['t_inst'].cumsum().min()
+        adj = info['trade_shares'] - fgn_adjustment + pplmin + instmin
+        if adj < 0: 
+            print('###############')
+            print('By investor adj error:', code)
+            print('total_shares:', info['total_shares'], 'trade_shares:', info['trade_shares'], 'fgn_weight:', info['fgn_weight'])
+            print('orignal fgn_adjustment:', fgn_adjustment, 'fgnmin:', fgnmin, 'pplmin:', pplmin, 'instmin:', instmin, 'adj:', adj)
+            fgn_adjustment = -fgnmin + info['trade_shares']*MARGIN_FACTOR
+            adj = info['trade_shares']*MARGIN_FACTOR 
+            print('\nfgn_adjustment set at -fgnmin + trade_share*MARGIN_FACTOR:', fgn_adjustment, 'where MARGIN_FACTOR:', MARGIN_FACTOR)
+            print('adj set at trade_share*MARGIN_FACTOR:', adj)
+            print('###############')
 
-# for 005930 Samsung, split date = '20180427', drop_period = 0, ratio = 50
-# date is the last day with the unsplitted price
-# drop_period is the duration of non trading before adjustment: should check with actual data
-# ss: short sales
-def ss_stock_split_adjustment(ss, date, drop_period=0, ratio=1):
-    idx = ss.loc[ss.date == date].index[0]
-    top = ss.loc[ss.index < idx-drop_period].copy()
-    bot = ss.loc[ss.index >= idx].copy()
-    bot.iloc[:, [1, 3, 9]] = bot.iloc[:, [1, 3, 9]]/ratio
-    bot.iloc[:, [5, 6]] = bot.iloc[:, [5, 6]]*ratio
-    bot.iloc[:, [1, 3, 9]] = bot.iloc[:, [1, 3, 9]].round().astype('int64')
-    return top.append(bot).reset_index(drop=True)
+        bi_net['ppl_ap'] = bi_net['price'].astype('float64')
+        bi_net['ppl_ca'] = bi_net['ppl'].cumsum() - pplmin + adj
+        bi_net['ppl_en'] = 0
 
-# for 005930 Samsung, split date = '20180427', drop_period = 3, ratio = 50
-# date is the last day with the unsplitted price
-# drop_period is the duration of non trading before adjustment: should check with actual data
-# bi: by investors
-def bi_stock_split_adjustment(bi, date, drop_period=0, ratio=1, moneyquantity = '2'): 
-    idx = bi.loc[bi.date == date].index[0]
-    top = bi.loc[bi.index < idx-drop_period].copy()
-    bot = bi.loc[bi.index >= idx].copy()
-    bot.iloc[:, [1, 3]] = bot.iloc[:, [1, 3]]/ratio
-    bot.iloc[:, 5] = bot.iloc[:, 5]*ratio
-    if moneyquantity == '2': # if quantity
-        bot.iloc[:, 7:] = bot.iloc[:, 7:]*ratio
-    elif moneyquantity == '1': # if money
-        pass
-    else: 
-        print('stock_split parameter error')
-    bot.iloc[:, 1:] = bot.iloc[:, 1:].round().astype('int64')
-    return top.append(bot).reset_index(drop=True)
+        for i in range(1, len(bi_net)):
+            bi_net.at[i, 'ppl_ap'] = round((bi_net.at[i-1, 'ppl_ap']*bi_net.at[i-1, 'ppl_ca']+bi_net.at[i,'price']*bi_buy.at[i,'ppl'])/(bi_net.at[i-1,'ppl_ca']+bi_buy.at[i,'ppl']), 1)
+            bi_net.at[i, 'ppl_en'] = round((bi_net.at[i, 'price']-bi_net.at[i-1, 'ppl_ap'])*(-bi_sell.at[i,'ppl'])+bi_net.at[i-1,'ppl_en'])
 
-def reverse_date(df):
-    return df.loc[::-1].reset_index(drop=True)
+        bi_net['fgn_ap'] = bi_net['price'].astype('float64')
+        bi_net['fgn_ca'] = bi_net['fgn'].cumsum() + fgn_adjustment
+        bi_net['fgn_en'] = 0
 
-ssr = reverse_date(ss_stock_split_adjustment(shortsales_record(), '20180427', 0, 50))
+        for i in range(1, len(bi_net)):
+            bi_net.at[i, 'fgn_ap'] = round((bi_net.at[i-1, 'fgn_ap']*bi_net.at[i-1, 'fgn_ca']+bi_net.at[i,'price']*bi_buy.at[i,'fgn'])/(bi_net.at[i-1,'fgn_ca']+bi_buy.at[i,'fgn']), 1)
+            bi_net.at[i, 'fgn_en'] = round((bi_net.at[i, 'price']-bi_net.at[i-1, 'fgn_ap'])*(-bi_sell.at[i,'fgn'])+bi_net.at[i-1,'fgn_en'])
 
-bi_net = reverse_date(bi_stock_split_adjustment(investor_history_singlecase(), '20180427', 3, 50))
-bs_net = bi_net.merge(ssr.iloc[:, [0,6,7,8,9]], on='date', how='inner').reset_index(drop=True) 
+        bi_net['t_inst_ap'] = bi_net['price'].astype('float64')
+        bi_net['t_inst_ca'] = bi_net['t_inst'].cumsum() - instmin + adj
+        bi_net['t_inst_en'] = 0
 
-bi_buy = reverse_date(bi_stock_split_adjustment(investor_history_singlecase(netbuysell='1'), '20180427', 3, 50))
-bi_sell = reverse_date(bi_stock_split_adjustment(investor_history_singlecase(netbuysell='2'), '20180427', 3, 50))
+        for i in range(1, len(bi_net)):
+            bi_net.at[i, 't_inst_ap'] = round((bi_net.at[i-1, 't_inst_ap']*bi_net.at[i-1, 't_inst_ca']+bi_net.at[i,'price']*bi_buy.at[i,'t_inst'])/(bi_net.at[i-1,'t_inst_ca']+bi_buy.at[i,'t_inst']), 1)
+            bi_net.at[i, 't_inst_en'] = round((bi_net.at[i, 'price']-bi_net.at[i-1, 't_inst_ap'])*(-bi_sell.at[i,'t_inst'])+bi_net.at[i-1,'t_inst_en'])
 
-# bi_net.to_excel("etc/bi_net.xlsx", index=False)
-# bi_buy.to_excel("etc/bi_buy.xlsx", index=False)
-# bi_sell.to_excel("etc/bi_sell.xlsx", index=False)
+        return [bi_net, bi_buy, bi_sell]
 
 
-SAMSUNG_TOTAL_SHARE = 5969782550
-INIT_PPL_SHARE = 0.1
-INIT_INST_SHARE = 0.1
-INIT_FGN_SHARE = 0.4
-
-bi_net['ppl_ap'] = bi_net['price'].astype('float64')
-bi_net['ppl_ca'] = bi_net['ppl'].cumsum() + round(SAMSUNG_TOTAL_SHARE*INIT_PPL_SHARE)
-bi_net['ppl_en'] = 0
-
-for i in range(1, len(bi_net)):
-    bi_net.at[i, 'ppl_ap'] = round((bi_net.at[i-1, 'ppl_ap']*bi_net.at[i-1, 'ppl_ca']+bi_net.at[i,'price']*bi_buy.at[i,'ppl'])/(bi_net.at[i-1,'ppl_ca']+bi_buy.at[i,'ppl']), 1)
-    bi_net.at[i, 'ppl_en'] = round((bi_net.at[i, 'price']-bi_net.at[i-1, 'ppl_ap'])*(-bi_sell.at[i,'ppl'])+bi_net.at[i-1,'ppl_en'])
-
-bi_net['fgn_ap'] = bi_net['price'].astype('float64')
-bi_net['fgn_ca'] = bi_net['fgn'].cumsum() + round(SAMSUNG_TOTAL_SHARE*INIT_FGN_SHARE)
-bi_net['fgn_en'] = 0
-
-for i in range(1, len(bi_net)):
-    bi_net.at[i, 'fgn_ap'] = round((bi_net.at[i-1, 'fgn_ap']*bi_net.at[i-1, 'fgn_ca']+bi_net.at[i,'price']*bi_buy.at[i,'fgn'])/(bi_net.at[i-1,'fgn_ca']+bi_buy.at[i,'fgn']), 1)
-    bi_net.at[i, 'fgn_en'] = round((bi_net.at[i, 'price']-bi_net.at[i-1, 'fgn_ap'])*(-bi_sell.at[i,'fgn'])+bi_net.at[i-1,'fgn_en'])
-
-bi_net['t_inst_ap'] = bi_net['price'].astype('float64')
-bi_net['t_inst_ca'] = bi_net['t_inst'].cumsum() + round(SAMSUNG_TOTAL_SHARE*INIT_INST_SHARE)
-bi_net['t_inst_en'] = 0
-
-for i in range(1, len(bi_net)):
-    bi_net.at[i, 't_inst_ap'] = round((bi_net.at[i-1, 't_inst_ap']*bi_net.at[i-1, 't_inst_ca']+bi_net.at[i,'price']*bi_buy.at[i,'t_inst'])/(bi_net.at[i-1,'t_inst_ca']+bi_buy.at[i,'t_inst']), 1)
-    bi_net.at[i, 't_inst_en'] = round((bi_net.at[i, 'price']-bi_net.at[i-1, 't_inst_ap'])*(-bi_sell.at[i,'t_inst'])+bi_net.at[i-1,'t_inst_en'])
+    def bi_graph_processing(self, code, bi_net, bi_buy, bi_sell):
+        info = self.infodb.loc[self.infodb.code == code].to_dict(orient='records')[0]
+        plt.rc('font', family='Malgun Gothic')
+        plt.rc('axes', unicode_minus=False)
+        fig, (ax0, ax1, ax2, ax3)= plt.subplots(4, 1, sharex=True, figsize = (10, 15), dpi = 150)
+        bi_net.loc[:, ['price']].plot(ax = ax0, title = f"{info['name']} ({code}) from {bi_net.date[0]} to {bi_net.date[len(bi_net)-1]}, price")
+        bi_net.loc[:, ['ppl_en', 'fgn_en', 't_inst_en']].plot(ax = ax1, title = "en: cumulative earnings")
+        bi_net.loc[:, ['ppl_ca', 'fgn_ca', 't_inst_ca']].plot(ax = ax2, title = "ca: cumulative amount of shares")
+        bi_net.loc[:, ['ppl_ap', 'fgn_ap', 't_inst_ap']].plot(ax = ax3, title = "ap: average price")
+        # plt.show()
+        plt.savefig(f"graphs/{info['name']}_{code}.png")
+        plt.close(fig) # release memory
 
 
-fig, (ax1, ax2, ax3)= plt.subplots(3, 1, sharex=True)
-bi_net.loc[:, ['ppl_en', 'fgn_en', 't_inst_en']].plot(ax = ax1)
-bi_net.loc[:, ['ppl_ca', 'fgn_ca', 't_inst_ca']].plot(ax = ax2)
-bi_net.loc[:, ['ppl_ap', 'fgn_ap', 't_inst_ap']].plot(ax = ax3)
-plt.show()
+if __name__=="__main__":
+    sta = STA()

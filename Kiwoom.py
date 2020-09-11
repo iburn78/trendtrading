@@ -3,7 +3,7 @@ from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
 from trsettings import *
 
-API_REQ_TIME_INTERVAL = 0.21 # min: 0.2
+API_REQ_TIME_INTERVAL = 0.25 # min: 0.2
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -37,6 +37,18 @@ class Kiwoom(QAxWidget):
         code_name = self.dynamicCall("GetMasterCodeName(QString)", code) # code should be str
         return code_name
 
+    def get_master_construction(self, code):
+        res = self.dynamicCall("GetMasterConstruction(QString)", code) # code should be str
+        return res
+
+    def get_master_stock_state(self, code):
+        res = self.dynamicCall("GetMasterStockState(QString)", code) # 0: KOSPI, 10: KOSDAQ, there are others too, refer to KOA
+        return res
+
+    def get_codelist_by_market(self, mkt):
+        codelist = self.dynamicCall("GetCodeListByMarket(QString)", mkt) # 0: KOSPI, 10: KOSDAQ, there are others too, refer to KOA
+        return codelist
+        
     def get_server_gubun(self): # returns if the current server is test server (1) or not 
         return self.dynamicCall("KOA_Functions(QString, QString)", "GetServerGubun", "")
 
@@ -124,7 +136,7 @@ class Kiwoom(QAxWidget):
             # '수정주가구분' set '0': price not adjusted, or '1': price adjusted 
             self.ohlcv = {'date': [], 'open': [], 'high': [], 'low': [], 'close': [], 'volume': []}
             self._opt10081(rqname, trcode)
-
+        
         elif rqname == "opt10081_req_ex":
             # getting ohlcv using batch process
             self._opt10081_ex(rqname, trcode)
@@ -154,6 +166,12 @@ class Kiwoom(QAxWidget):
 
         elif rqname == "opt10059_req": 
             self.opt10059_multi_data_set = self._get_comm_data_ex("opt10059", "종목별투자자기관별요청")
+
+        elif rqname == "OPT10068_req": 
+            self.opt10068_multi_data_set = self._get_comm_data_ex("OPT10068", "대차거래추이요청")
+
+        elif rqname == "opt20068_req": 
+            self.opt20068_multi_data_set = self._get_comm_data_ex("opt20068", "대차거래추이요청(종목별)")
 
         else: 
             tl_print("TR request name not matching: ", screen_no, rqname, trcode, record_name, next_, unused1, unused2, unused3, unused4)
@@ -187,7 +205,7 @@ class Kiwoom(QAxWidget):
         multi_data[['cprice', 'vol', 'vol_krw', 'start', 'high', 'low']] = multi_data[['cprice', 'vol', 'vol_krw', 'start', 'high', 'low']].astype('int')
         multi_data['date'] = pd.to_datetime(multi_data['date'])
         self.opt10081_multi_data_set = multi_data
-        
+    
     def _opw00001(self, rqname, trcode):
         d2_deposit = self._comm_get_data(trcode, "", rqname, 0, "d+2추정예수금")
         self.d2_deposit = d2_deposit
@@ -237,13 +255,43 @@ class Kiwoom(QAxWidget):
             raise Exception()
     
     def _opt10001(self, rqname, trcode):
+        code = self._comm_get_data(trcode, "", rqname, 0, "종목코드")
         cprice = self._comm_get_data(trcode, "", rqname, 0, "현재가")
-        try: 
-            cprice = abs(int(cprice))
-        except Exception as e:
-            # print(e) # error when cprice = ""
-            cprice = 0
-        self.cprice = cprice
+        name = self._comm_get_data(trcode, "", rqname, 0, "종목명") 
+        try: total_shares = int(self._comm_get_data(trcode, "", rqname, 0, "상장주식"))*1000 # in 1 
+        except: total_shares = 1000
+        try: total_traded_shares = int(self._comm_get_data(trcode, "", rqname, 0, "유통주식"))*1000 # in 1 
+        except: total_traded_shares = total_shares
+        try: fgn_weight = float(self._comm_get_data(trcode, "", rqname, 0, "외인소진률"))/100 # ratio
+        except: fgn_weight = 0
+        try: per = float(self._comm_get_data(trcode, "", rqname, 0, "PER")) # times
+        except: per = 0
+        try: eps = int(self._comm_get_data(trcode, "", rqname, 0, "EPS"))  # in won
+        except: eps = 0
+        try: roe = float(self._comm_get_data(trcode, "", rqname, 0, "ROE")) # times
+        except: roe = 0
+        try: pbr = float(self._comm_get_data(trcode, "", rqname, 0, "PBR")) # times
+        except: pbr = 0
+        try: ev = float(self._comm_get_data(trcode, "", rqname, 0, "EV")) # EV/EBITDA (?)
+        except: ev = 0
+        try: bps = int(self._comm_get_data(trcode, "", rqname, 0, "BPS")) # in won
+        except: bps = 0
+        try: mc = int(self._comm_get_data(trcode, "", rqname, 0, "시가총액")) # in 10^8
+        except: mc = 0
+        try: sales = int(self._comm_get_data(trcode, "", rqname, 0, "매출액")) # in 10^8
+        except: sales = 0
+        try: ebit = int(self._comm_get_data(trcode, "", rqname, 0, "영업이익")) # in 10^8
+        except: ebit = 0
+        try: netp = int(self._comm_get_data(trcode, "", rqname, 0, "당기순이익")) # in 10^8
+        except: netp = 0
+        try: cprice = abs(int(cprice))
+        except: cprice = 0
+        self.cprice = cprice # in won
+        status = self.get_master_construction(code)
+        note = self.get_master_stock_state(code)
+        self.stock_basic_info = {'code': code, 'cprice': cprice, 'total_shares': total_shares, 'trade_shares': total_traded_shares, 'fgn_weight': fgn_weight, 'PER': per, 
+                                 'EPS': eps, 'ROE': roe, 'PBR': pbr, 'EV': ev, 'BPS': bps, 'mktcap': mc, 'sales': sales, 'EBIT': ebit, 'netprofit': netp, 'name': name, 'status': status, 'note': note}
+
 
     @staticmethod
     def change_format(data): 
@@ -284,6 +332,11 @@ class Kiwoom(QAxWidget):
         self.comm_rq_data('opt10001_req', 'opt10001', 0, '2000')
         return self.cprice # cprice will return integer value. 0 will be returned when API returns ""
 
+    def get_basic_info(self, code): 
+        self.set_input_value('종목코드', code)
+        self.comm_rq_data('opt10001_req', 'opt10001', 0, '2000')
+        return self.stock_basic_info
+        
     def get_account_stock_list(self, ACCOUNT_NO):
         self.set_input_value("계좌번호", ACCOUNT_NO)
         self.comm_rq_data("opw00018_req", "opw00018", 0, "2000")
