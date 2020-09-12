@@ -1,7 +1,6 @@
 import sqlite3
 from Kiwoom import *
 
-pd.set_option('display.max_rows', None)
 STA_DATE_PERIOD = '0' # 0: date, 1: period
 STA_START_DATE = '0' # ignored if STA_DATE_PERIOD = '0'
 STA_END_DATE = '20200831'

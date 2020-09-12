@@ -3,20 +3,32 @@ import sys
 import sqlite3
 from stadownload import BYINVESTOR_DB, INFO_DB, INFO_DB_TABLE
 
+# If manual adjustment is required more than once, it has to be reflected into the split functions ######### REQUIRED
 STA_ARG_DICT_SPLIT_EXCEPTION = {
     '005930': {'split_date':'20180504', 'split_ratio':50},  
     '005935': {'split_date':'20180504', 'split_ratio':50}, 
-    '000100': {'split_date':'20200408', 'split_ratio':5}
-    }
+    '000100': {'split_date':'20200408', 'split_ratio':5},
+    '204320': {'split_date':'20180508', 'split_ratio':5},
+    '013890': {'split_date':'20170523', 'split_ratio':10},
+    '200130': {'split_date':'20151005', 'split_ratio':0.2}, 
+    '000240': {'split_date':'20121004', 'split_ratio':2}, 
+    '018880': {'split_date':'20160216', 'split_ratio':5}, 
+    '145020': {'split_date':'20200708', 'split_ratio':3}, 
+    '004800': {'split_date':'20180713', 'split_ratio':1/0.39}, # company splited to 4 entities.... may double check the data... 
+    '081660': {'split_date':'20180509', 'split_ratio':5}, 
+}
+STA_ARG_DICT_SPLIT_EXCEPTION_LATER_SPLIT = {    # code in this dict should also exist in STA_ARG_DICT_SPLIT_EXCEPTION
+    '200130': {'split_date':'20160115', 'split_ratio':2}, 
+}
 
 class STA():
-
     def __init__(self):
         self.infodb = self.read_infodb()
         self.tblist, self.codelist = self.read_bicode()
         i = j = 0
+        # self.codelist = ['200130'] # code to test
         for code in self.codelist[j:]: 
-            print('pricessing:', code, i)
+            print('processing:', code, i)
             i += 1
             [bi_net, bi_buy, bi_sell] = self.bi_stock_split_adjustment(*self.read_bidb(code), code)
             bi_net = self.reverse_date(bi_net)
@@ -77,26 +89,26 @@ class STA():
         return ss
 
     def ss_stock_split_adjustment_onetime(self, ss, split_date, split_ratio=1):
+        top = ss.loc[ss.date >= split_date].copy()
+        bot = ss.loc[ss.date < split_date].copy()
+        bot.iloc[:, [1, 3, 9]] = bot.iloc[:, [1, 3, 9]]/split_ratio
+        bot.iloc[:, [5, 6]] = bot.iloc[:, [5, 6]]*split_ratio
+        bot.iloc[:, [1, 3, 9]] = bot.iloc[:, [1, 3, 9]].round().astype('int64')
+        ss = top.append(bot).reset_index(drop=True)
         ss.drop(ss.loc[ss.volume == 0].index, inplace = True)
-        if split_date in list(ss.date):
-            idx = ss.loc[ss.date == split_date].index[0]
-            top = ss.loc[ss.index <= idx].copy()
-            bot = ss.loc[ss.index > idx].copy()
-            bot.iloc[:, [1, 3, 9]] = bot.iloc[:, [1, 3, 9]]/split_ratio
-            bot.iloc[:, [5, 6]] = bot.iloc[:, [5, 6]]*split_ratio
-            bot.iloc[:, [1, 3, 9]] = bot.iloc[:, [1, 3, 9]].round().astype('int64')
-            return top.append(bot).reset_index(drop=True)
-        else: 
-            return ss.reset_index(drop=True)
+        return ss
 
     # for 005930 Samsung, split date = '20180504', ratio = 50
     # date is the first day with the splitted price
     # bi: by investors
     def bi_stock_split_adjustment(self, bi_net, bi_buy, bi_sell, code):
-        if code in STA_ARG_DICT_SPLIT_EXCEPTION: 
-            bi_net = self.bi_stock_split_adjustment_onetime(bi_net, **STA_ARG_DICT_SPLIT_EXCEPTION[code])
-            bi_buy = self.bi_stock_split_adjustment_onetime(bi_buy, **STA_ARG_DICT_SPLIT_EXCEPTION[code])
-            bi_sell = self.bi_stock_split_adjustment_onetime(bi_sell, **STA_ARG_DICT_SPLIT_EXCEPTION[code])
+        exp_list = [STA_ARG_DICT_SPLIT_EXCEPTION, STA_ARG_DICT_SPLIT_EXCEPTION_LATER_SPLIT]
+        for exp in exp_list:
+            if code in exp: 
+                bi_net = self.bi_stock_split_adjustment_onetime(bi_net, **exp[code])
+                bi_buy = self.bi_stock_split_adjustment_onetime(bi_buy, **exp[code])
+                bi_sell = self.bi_stock_split_adjustment_onetime(bi_sell, **exp[code])
+        if code in STA_ARG_DICT_SPLIT_EXCEPTION:
             return [bi_net, bi_buy, bi_sell]
         try:
             sp = yf.Ticker(f'{code}.ks').splits
@@ -114,23 +126,20 @@ class STA():
         return [bi_net, bi_buy, bi_sell]
 
     def bi_stock_split_adjustment_onetime(self, bi, split_date, split_ratio=1, moneyquantity = '2'): 
-        bi.drop(bi.loc[bi.volume == 0].index, inplace = True)
-        if split_date in list(bi.date):
-            idx = bi.loc[bi.date == split_date].index[0]
-            top = bi.loc[bi.index <= idx].copy()
-            bot = bi.loc[bi.index > idx].copy()
-            bot.iloc[:, [1, 3]] = bot.iloc[:, [1, 3]]/split_ratio
-            bot.iloc[:, 5] = bot.iloc[:, 5]*split_ratio
-            if moneyquantity == '2': # if quantity
-                bot.iloc[:, 7:] = bot.iloc[:, 7:]*split_ratio
-            elif moneyquantity == '1': # if money
-                pass
-            else: 
-                print('stock_split parameter error')
-            bot.iloc[:, 1:] = bot.iloc[:, 1:].round().astype('int64')
-            return top.append(bot).reset_index(drop=True)
+        top = bi.loc[bi.date >= split_date].copy()
+        bot = bi.loc[bi.date < split_date].copy()
+        bot.iloc[:, [1, 3]] = bot.iloc[:, [1, 3]]/split_ratio
+        bot.iloc[:, 5] = bot.iloc[:, 5]*split_ratio
+        if moneyquantity == '2': # if quantity
+            bot.iloc[:, 7:] = bot.iloc[:, 7:]*split_ratio
+        elif moneyquantity == '1': # if money
+            pass
         else: 
-            return bi.reset_index(drop=True)
+            print('stock_split parameter error')
+        bot.iloc[:, 1:] = bot.iloc[:, 1:].round().astype('int64')
+        bi = top.append(bot).reset_index(drop=True)
+        bi.drop(bi.loc[bi.volume == 0].index, inplace = True)
+        return bi
 
     def reverse_date(self, df):
         return df.loc[::-1].reset_index(drop=True)
