@@ -5,7 +5,7 @@ STA_DATE_PERIOD = '0' # 0: date, 1: period
 STA_START_DATE = '0' # ignored if STA_DATE_PERIOD = '0'
 STA_END_DATE = '20200831'
 STA_UNIT = '1' 
-STA_NUMBER_TO_RECEIVE_NEXTPAGE = 10
+STA_NUMBER_TO_RECEIVE_NEXTPAGE = 20
 BYINVESTOR_DB = 'sta/byinvestor.db'
 INFO_DB = 'sta/infodb.db'
 INFO_DB_TABLE = 'infodb'
@@ -21,14 +21,14 @@ class STA_download():
         self.ss_download()
         pass
     
-    # ss: short sales
+    # ss: short sales // download to db required
     def ss_download(self): 
         app = QApplication([''])
         self.k = Kiwoom()
         ss = self.shortsales_record('005930')
         print(ss)
 
-    # dc: daecha 
+    # dc: daecha // download to db required
     def dc_download(self):
         app = QApplication([''])
         self.k = Kiwoom()
@@ -38,6 +38,19 @@ class STA_download():
         dt2 = self.daecha_trading_record_code('20200901', '20200908', '005930')
         print(dt1)
         print(dt2)
+
+    ##################
+    # program: arbitrage vs non-arbitrage
+    # use opt90013: need to be implemented in Kiwoom
+    ##################
+    
+    ##################
+    # figure fgn money distribution out and relative performance
+    ##################
+
+    ##################
+    # validate Morgan Stanley assumption / analysis
+    ##################
 
     # bi: by investors
     def bi_download(self):

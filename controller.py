@@ -12,20 +12,20 @@ remove_master_book_onetime_for_clean_initiation()
 HOLIDAYS_2020 = ['20200930', '20201001', '20201002', '20201009', '20201225']
 HOLIDAYS = list(map(lambda x: datetime.strptime(x, '%Y%m%d').date(), HOLIDAYS_2020))
 ################################################################################################
-# VERSION_CHK_TIME = "08:00"
+VERSION_CHK_TIME = "08:00"
 TRTRADE_RUN_TIME = "09:15"
 TRTRADE_FIN_TIME = "15:15"
-VERSION_CHK_TIME = (datetime.now() + timedelta(seconds = 10)).strftime("%H:%M:%S") 
-TRTRADE_RUN_TIME = (datetime.now() + timedelta(minutes = 0.5)).strftime("%H:%M:%S") 
-TRTRADE_FIN_TIME = (datetime.now() + timedelta(minutes = 3)).strftime("%H:%M:%S") 
-TRTRADE_RUN_INTERVAL = 10 # second
-RUN_PENDING_INTERVAL = 10
+VERSION_CHK_TIME = (datetime.now() + timedelta(seconds = 1)).strftime("%H:%M:%S") 
+TRTRADE_RUN_TIME = (datetime.now() + timedelta(minutes = 0.3)).strftime("%H:%M:%S") 
+TRTRADE_FIN_TIME = (datetime.now() + timedelta(minutes = 7)).strftime("%H:%M:%S") 
+TRTRADE_RUN_INTERVAL = 10 # second # time to rerun trtrader during TRTRADE_RUN_TIME until TRTRADE_FIN_TIME
+RUN_PENDING_INTERVAL = 10 # time to rerun different processes under controller schedule, e.g., vershin checker, 
 ################################################################################################
 TRTRADE_RUN_DTIME = dtime.fromisoformat(TRTRADE_RUN_TIME)
 TRTRADE_FIN_DTIME = dtime.fromisoformat(TRTRADE_FIN_TIME)
 ################################################################################################
-MAX_VERSION_CHECK_TIME = 2*60 
-VERCHECK_SUCCESS_LOOP_INTERVAL = 5
+MAX_VERSION_CHECK_TIME = 3*60 # time to allow version checker to run / time to let Kiwoom API to update 
+VERCHECK_SUCCESS_LOOP_INTERVAL = 5  # interval to check if version checking is successful 
 WORKING_DAY_DEFINITION = [0, 1, 2, 3, 4, 5, 6]  # starts from MON... 
 SYS_EXIT_ON_VERSION_CHECK_FAILURE = False
 
@@ -51,7 +51,8 @@ class Controller():
     # uses multiprocessing for clean termination
     def run_verchecker(self): 
         con_stat = multiprocessing.Value('i', 0)
-        vercheck_proc = multiprocessing.Process(target=self.version_check_func, args=(con_stat,), daemon=True) 
+        vercheck_proc = multiprocessing.Process(target=self.version_check_func, args=(con_stat,), daemon=True) # daemons are killed when main program exits 
+                                                                                                               # use 'join' to tell the main program to wait until all daemons finish jobs
         tl_print("Version checker runs at "+ time.strftime("%Y/%m/%d %H:%M:%S"))
         vercheck_proc.start()
         t_end = time.time() + MAX_VERSION_CHECK_TIME

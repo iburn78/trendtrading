@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters # For datetime series converting.... 
 import multiprocessing
 
-pd.set_option('display.max_rows', None)
+# pd.set_option('display.max_rows', None)
 ################################################################################################
 PLT_PAUSE_DURATION = 0.1
 PLT_SHOW_DURATION = 10
@@ -35,7 +35,7 @@ MAX_REINVESTMENT = 4        # total 5 investments max
 MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is modified
 PRINT_TO_SCREEN = True
 ################################################################################################
-USE_SIMULATOR = True
+USE_SIMULATOR = False
 SIM_LOG_FILE = WORKING_DIR_PATH + 'data/sim_log.txt'
 if USE_SIMULATOR:
     FEE_RATE = 0.00015        # real FEE_RATE

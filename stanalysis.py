@@ -4,7 +4,7 @@ import sqlite3
 from stadownload import BYINVESTOR_DB, INFO_DB, INFO_DB_TABLE
 
 # If manual adjustment is required more than once, it has to be reflected into the split functions ######### REQUIRED
-STA_ARG_DICT_SPLIT_EXCEPTION = {
+SPLIT_1st = {   # has to be earlier 
     '005930': {'split_date':'20180504', 'split_ratio':50},  
     '005935': {'split_date':'20180504', 'split_ratio':50}, 
     '000100': {'split_date':'20200408', 'split_ratio':5},
@@ -16,17 +16,22 @@ STA_ARG_DICT_SPLIT_EXCEPTION = {
     '145020': {'split_date':'20200708', 'split_ratio':3}, 
     '004800': {'split_date':'20180713', 'split_ratio':1/0.39}, # company splited to 4 entities.... may double check the data... 
     '081660': {'split_date':'20180509', 'split_ratio':5}, 
+    '086450': {'split_date':'20200910', 'split_ratio':5}, 
 }
-STA_ARG_DICT_SPLIT_EXCEPTION_LATER_SPLIT = {    # code in this dict should also exist in STA_ARG_DICT_SPLIT_EXCEPTION
+SPLIT_2nd = {   # has to be later than 1st 
     '200130': {'split_date':'20160115', 'split_ratio':2}, 
 }
+SPLIT_EXP_LIST = [SPLIT_1st, SPLIT_2nd]
 
 class STA():
     def __init__(self):
         self.infodb = self.read_infodb()
         self.tblist, self.codelist = self.read_bicode()
+        # self.codelist = ['086450'] # , '200130'] # code to test
+        self.bis = self.bi_adjustment(testmode = False) # if testmode, instance saves first bis from the codelist
+
+    def bi_adjustment(self, testmode = False):
         i = j = 0
-        # self.codelist = ['200130'] # code to test
         for code in self.codelist[j:]: 
             print('processing:', code, i)
             i += 1
@@ -35,6 +40,8 @@ class STA():
             bi_buy = self.reverse_date(bi_buy)
             bi_sell = self.reverse_date(bi_sell)
             bis = self.bi_share_adjustment(code, bi_net, bi_buy, bi_sell)
+            if testmode: 
+                return bis
             self.bi_graph_processing(code, *bis)
 
     def read_infodb(self):
@@ -77,8 +84,13 @@ class STA():
     # date is the first day with the splitted price
     # ss: short sales
     def ss_stock_split_adjustment(self, ss, code):
-        if code in STA_ARG_DICT_SPLIT_EXCEPTION: 
-            return self.ss_stock_split_adjustment_onetime(ss, **STA_ARG_DICT_SPLIT_EXCEPTION[code])
+        exp_code = False
+        for exp in SPLIT_EXP_LIST:
+            if code in exp: 
+                ss = self.ss_stock_split_adjustment_onetime(ss, **exp[code])
+                exp_code = True 
+        if exp_code: 
+            return ss
         try:
             sp = yf.Ticker(f'{code}.ks').splits
         except:
@@ -102,13 +114,14 @@ class STA():
     # date is the first day with the splitted price
     # bi: by investors
     def bi_stock_split_adjustment(self, bi_net, bi_buy, bi_sell, code):
-        exp_list = [STA_ARG_DICT_SPLIT_EXCEPTION, STA_ARG_DICT_SPLIT_EXCEPTION_LATER_SPLIT]
-        for exp in exp_list:
+        exp_code = False
+        for exp in SPLIT_EXP_LIST:
             if code in exp: 
                 bi_net = self.bi_stock_split_adjustment_onetime(bi_net, **exp[code])
                 bi_buy = self.bi_stock_split_adjustment_onetime(bi_buy, **exp[code])
                 bi_sell = self.bi_stock_split_adjustment_onetime(bi_sell, **exp[code])
-        if code in STA_ARG_DICT_SPLIT_EXCEPTION:
+                exp_code = True 
+        if exp_code: 
             return [bi_net, bi_buy, bi_sell]
         try:
             sp = yf.Ticker(f'{code}.ks').splits
@@ -196,15 +209,55 @@ class STA():
 
 
     def bi_graph_processing(self, code, bi_net, bi_buy, bi_sell):
-        info = self.infodb.loc[self.infodb.code == code].to_dict(orient='records')[0]
+        _SIZE = 12
+
+        plt.rc('font', size=_SIZE)          # controls default text sizes
+        plt.rc('axes', titlesize=_SIZE)     # fontsize of the axes title
+        plt.rc('axes', labelsize=_SIZE)    # fontsize of the x and y labels
+        plt.rc('xtick', labelsize=_SIZE)    # fontsize of the tick labels
+        plt.rc('ytick', labelsize=_SIZE)    # fontsize of the tick labels
+        plt.rc('legend', fontsize=_SIZE)    # legend fontsize
+        plt.rc('figure', titlesize=_SIZE)  # fontsize of the figure title 
         plt.rc('font', family='Malgun Gothic')
         plt.rc('axes', unicode_minus=False)
-        fig, (ax0, ax1, ax2, ax3)= plt.subplots(4, 1, sharex=True, figsize = (10, 15), dpi = 150)
-        bi_net.loc[:, ['price']].plot(ax = ax0, title = f"{info['name']} ({code}) from {bi_net.date[0]} to {bi_net.date[len(bi_net)-1]}, price")
-        bi_net.loc[:, ['ppl_en', 'fgn_en', 't_inst_en']].plot(ax = ax1, title = "en: cumulative earnings")
-        bi_net.loc[:, ['ppl_ca', 'fgn_ca', 't_inst_ca']].plot(ax = ax2, title = "ca: cumulative amount of shares")
-        bi_net.loc[:, ['ppl_ap', 'fgn_ap', 't_inst_ap']].plot(ax = ax3, title = "ap: average price")
+
+        info = self.infodb.loc[self.infodb.code == code].to_dict(orient='records')[0]
+        fig, ([ax00, ax10], [ax01, ax11], [ax02, ax12], [ax03, ax13])= plt.subplots(4, 2, sharex=True, figsize = (30, 15), dpi = 250)
+        bi_net.loc[:, ['price']].plot(ax = ax00, title = f"{info['name']} ({code}) from {bi_net.date[0]} to {bi_net.date[len(bi_net)-1]}, price", linewidth = 0.7, color='k', legend=False)
+        bi_net.loc[:, ['ppl_ca', 'fgn_ca', 't_inst_ca']].plot(ax = ax01, title = "ca: cumulative amount of shares", linewidth = 0.7, color='bgm', legend= False)
+        bi_net.loc[:, ['ppl_ap', 'fgn_ap', 't_inst_ap']].plot(ax = ax02, title = "ap: average price", linewidth = 0.7, color='bgm', legend = False)
+        bi_net.loc[:, ['ppl_en', 'fgn_en', 't_inst_en']].plot(ax = ax03, title = "en: cumulative earnings", linewidth = 0.7, color='bgm', legend = False)
+        
+        bi_net.loc[:, ['ppl', 'fgn', 't_inst']].plot(ax = ax10, title = "net purchase", linewidth = 0.7, color='bgm', legend = False)
+        bi_buy.loc[:, 'ppl'].plot(ax = ax11, title = "people", linewidth = 0.7, color='b', legend = False)
+        bi_sell.loc[:, 'ppl'].plot(ax = ax11, linewidth = 0.7, color='b', legend = False)
+
+        bi_buy.loc[:, 'fgn'].plot(ax = ax12, title = "foreign", linewidth = 0.7, color='g', legend = False)
+        bi_sell.loc[:, 'fgn'].plot(ax = ax12, linewidth = 0.7, color='g', legend = False)
+
+        bi_buy.loc[:, 't_inst'].plot(ax = ax13, title = "institutions total", linewidth = 0.7, color='m', legend = False)
+        bi_sell.loc[:, 't_inst'].plot(ax = ax13, linewidth = 0.7, color='m', legend = False)
+        y10min, y10max = ax10.get_ylim()
+        y11min, y11max = ax11.get_ylim()
+        y12min, y12max = ax12.get_ylim()
+        y13min, y13max = ax13.get_ylim()
+        ymin = min(y10min, y11min, y12min, y13min)
+        ymax = max(y10max, y11max, y12max, y13max)
+        ax10.set_ylim(ymin, ymax)
+        ax11.set_ylim(ymin, ymax)
+        ax12.set_ylim(ymin, ymax)
+        ax13.set_ylim(ymin, ymax)
+
+        ax10p = ax10.twinx()
+        ax11p = ax11.twinx()
+        ax12p = ax12.twinx()
+        ax13p = ax13.twinx()
+        bi_net.loc[:, 'price'].plot(ax = ax10p, linewidth = 0.7, color='k', legend = False)
+        bi_net.loc[:, 'price'].plot(ax = ax11p, linewidth = 0.7, color='k', legend = False)
+        bi_net.loc[:, 'price'].plot(ax = ax12p, linewidth = 0.7, color='k', legend = False)
+        bi_net.loc[:, 'price'].plot(ax = ax13p, linewidth = 0.7, color='k', legend = False)
         # plt.show()
+        fig.tight_layout() # better use in saving file
         plt.savefig(f"graphs/{info['name']}_{code}.png")
         plt.close(fig) # release memory
 

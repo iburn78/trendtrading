@@ -558,13 +558,13 @@ class TrTrader():
         [command_time, ext_command] = self.read_external_command()
         if ext_command != '':
             tl_print('External command ['+ext_command+'] recognized at time: '
-                + self.ext_command_last_excution_time_.strftime("%Y%m%d %H:%M:%S")+' (command created at: '+command_time+')')
+                + datetime.now().strftime("%Y%m%d %H:%M:%S")+' (command created at: '+command_time+')')
             if ext_command == 'suspend':
                 tl_print("*****************************************************")
                 tl_print("PROCESS SUSPENDED PER THE EXTERNAL COMMAND: [suspend]")
                 tl_print("*****************************************************")
                 while 1: 
-                    tl_print("System suspended - waiting for", EXT_COMM_SUSPEND_SLEEPING_TIME, "seconds until recheck")    
+                    # tl_print("System suspended - waiting for", EXT_COMM_SUSPEND_SLEEPING_TIME, "seconds until recheck")    
                     time.sleep(EXT_COMM_SUSPEND_SLEEPING_TIME)
                     [command_time, ext_command] = self.read_external_command()
                     if ext_command == 'resume':
@@ -578,6 +578,8 @@ class TrTrader():
                         tl_print('External command ['+ext_command+'] recognized at time: '
                             + self.ext_command_last_excution_time_.strftime("%Y%m%d %H:%M:%S")+' (command created at: '+command_time+')')
                         break
+                    elif ext_command == 'ping':
+                        tl_print("ping > trtrader is suspended")
             elif ext_command == 'resume':
                 tl_print("[resume] command not executed in suspend status is ignored")
             elif ext_command == 'ping':
@@ -601,11 +603,11 @@ class TrTrader():
             if command_time > self.ext_command_last_excution_time_:
                 # only if command time is later than init time or last execution time, the command will be executed
                 if ext_command in EXTERNAL_COMMAND_LIST:
-                    self.ext_command_last_excution_time_ = datetime.now()
+                    self.ext_command_last_excution_time_ = command_time
                     return [lines[0], ext_command]
             return ['', '']
         except Exception as e: 
-            tl_print("Excpetion: Error in read_external_command - ignored: " + str(e))
+            # tl_print("Excpetion: Error in read_external_command - ignored: " + str(e))
             return ['', '']
             # Any kinds of errors are ignored
         
