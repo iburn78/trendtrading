@@ -14,14 +14,15 @@ import multiprocessing
 PLT_PAUSE_DURATION = 0.1
 PLT_SHOW_DURATION = 10
 ################################################################################################
-WORKING_DIR_PATH = "C:/Users/user/Projects/trendtrading/"
 EXTERNAL_TRTRADER_SETTINGS_FILE = 'trtrader_settings.dat' ### TRTRADE_SETTINGS_FILE IS NOT UPLOADED TO GIT - USE THIS FOR CONFIDENTIAL INFO
-TRADE_LOG_FILE = WORKING_DIR_PATH + 'data/trade_log.txt'
-MASTER_BOOK_FILE = 'data/master_book.xlsx'
-MASTER_BOOK_BACKUP_FILE = 'data/backup/master_book.xlsx'
-with open(WORKING_DIR_PATH+EXTERNAL_TRTRADER_SETTINGS_FILE) as f:
+with open(EXTERNAL_TRTRADER_SETTINGS_FILE) as f:
     tsf = json.load(f)
     ACCOUNT_NO = tsf['ACCOUNT_NO'] 
+TRTRADER_DATA_DIR = 'data/'
+TRTRADER_DATA_BACKUP_DIR = 'data/backup/'
+TRADE_LOG_FILE = TRTRADER_DATA_DIR+'trade_log.txt'
+MASTER_BOOK_FILE = TRTRADER_DATA_DIR+'master_book.xlsx'
+MASTER_BOOK_BACKUP_FILE = TRTRADER_DATA_BACKUP_DIR+'master_book.xlsx'
 ################################################################################################
 U_STEP = 0.15
 L_STEP = -0.05
@@ -36,7 +37,7 @@ MAX_ELEVATION = 10          # do not change this const unless bounds.xlsx is mod
 PRINT_TO_SCREEN = True
 ################################################################################################
 USE_SIMULATOR = False
-SIM_LOG_FILE = WORKING_DIR_PATH + 'data/sim_log.txt'
+SIM_LOG_FILE = TRTRADER_DATA_DIR+'sim_log.txt'
 if USE_SIMULATOR:
     FEE_RATE = 0.00015        # real FEE_RATE
     TAX_RATE = 0.003          # real TAX_RATE (may differ by KOSDAQ/KOSPI and by product type, e.g., cheaper tax for derivative products)
@@ -79,11 +80,18 @@ def file_print(filename_, *args, **kwargs):
         print(*args, **kwargs)
     ff.close()
 
+def controller_clean_initiation_prep():
+    if not os.path.exists(TRTRADER_DATA_DIR):
+        os.mkdir(TRTRADER_DATA_DIR)
+    if not os.path.exists(TRTRADER_DATA_BACKUP_DIR):
+        os.mkdir(TRTRADER_DATA_BACKUP_DIR)
+    remove_master_book_onetime_for_clean_initiation()
+
 def remove_master_book_onetime_for_clean_initiation():
     if os.path.exists(MASTER_BOOK_FILE):
         t = time.strftime("_%Y%m%d_%H%M%S")
         n = MASTER_BOOK_BACKUP_FILE[:-5]
-        os.rename(WORKING_DIR_PATH+MASTER_BOOK_FILE, WORKING_DIR_PATH+n+t+'.xlsx')
+        os.rename(MASTER_BOOK_FILE, n+t+'.xlsx')
 
 def bounds_prep(draw=False):
     u_step = U_STEP # 0.15

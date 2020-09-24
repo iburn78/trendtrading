@@ -7,10 +7,10 @@ from Kiwoom import *
 from simulator import * 
 
 ################################################################################################
-EXTERNAL_LIST_FILE = 'data/external_list.xlsx'
-EXTERNAL_LIST_BACKUP_FILE = 'data/backup/external_list.xlsx'
-STATUS_REPORT_FILE = 'data/trtrader_status.txt'
-STATUS_REPORT_MOBILE = 'data/trtrader_status_brief.txt'
+EXTERNAL_LIST_FILE = TRTRADER_DATA_DIR+'external_list.xlsx'
+EXTERNAL_LIST_BACKUP_FILE = TRTRADER_DATA_BACKUP_DIR+'external_list.xlsx'
+STATUS_REPORT_FILE = TRTRADER_DATA_DIR+'trtrader_status.txt'
+STATUS_REPORT_MOBILE = TRTRADER_DATA_DIR+'trtrader_status_brief.txt'
 EXTERNAL_COMMAND_URL = "http://13.209.99.197/command.html"
 EXT_COMM_SUSPEND_SLEEPING_TIME = 10
 ################################################################################################
@@ -345,7 +345,7 @@ class TrTrader():
             if self.prev_mbf_exists and replace: 
                 t = time.strftime("_%Y%m%d_%H%M%S")
                 n = MASTER_BOOK_BACKUP_FILE[:-5]
-                os.rename(WORKING_DIR_PATH+MASTER_BOOK_FILE, WORKING_DIR_PATH+n+t+'.xlsx')
+                os.rename(MASTER_BOOK_FILE, n+t+'.xlsx')
 
             self.prev_mbf_exists = False 
             mb = xlsxwriter.Workbook(MASTER_BOOK_FILE)
@@ -424,7 +424,7 @@ class TrTrader():
 
         t = time.strftime("_%Y%m%d_%H%M%S")
         n = EXTERNAL_LIST_BACKUP_FILE[:-5]
-        os.rename(WORKING_DIR_PATH+EXTERNAL_LIST_FILE, WORKING_DIR_PATH+n+t+'.xlsx')
+        os.rename(EXTERNAL_LIST_FILE, n+t+'.xlsx')
 
         return el
 

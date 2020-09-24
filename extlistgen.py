@@ -2,7 +2,6 @@ import os
 import xlsxwriter
 import time
 import pandas as pd
-from Kiwoom import WORKING_DIR_PATH
 from trtrader import EXTERNAL_LIST_FILE, EXTERNAL_LIST_BACKUP_FILE
 import yfinance as yf
 import matplotlib.pyplot as plt
@@ -62,7 +61,7 @@ class ExtListGen():
         elif os.path.exists(EXTERNAL_LIST_FILE) and RESET_EXTLIST_ON_INITIATION:
             t = time.strftime("_%Y%m%d_%H%M%S")
             n = EXTERNAL_LIST_BACKUP_FILE[:-5]
-            os.rename(WORKING_DIR_PATH+EXTERNAL_LIST_FILE, WORKING_DIR_PATH+n+t+'(unexecuted).xlsx')
+            os.rename(EXTERNAL_LIST_FILE, n+t+'(unexecuted).xlsx')
 
     def write_external_list_to_Excel(self, el):
         if len(el) > 0: 

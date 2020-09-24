@@ -4,9 +4,10 @@ import multiprocessing
 from trsettings import *
 from trtrader import *
 
+### Create data and backup folder for trtrader ###
 ### START WITH A NEW MASTER BOOK ###
 ### LEAVE: CREATE_NEW_MASTER_BOOK = False ###
-remove_master_book_onetime_for_clean_initiation()
+controller_clean_initiation_prep()
 
 ################################################################################################
 HOLIDAYS_2020 = ['20200930', '20201001', '20201002', '20201009', '20201225']
