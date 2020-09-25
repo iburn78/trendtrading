@@ -16,11 +16,11 @@ HOLIDAYS = list(map(lambda x: datetime.strptime(x, '%Y%m%d').date(), HOLIDAYS_20
 VERSION_CHK_TIME = "08:00"
 TRTRADE_RUN_TIME = "09:15"
 TRTRADE_FIN_TIME = "15:15"
-VERSION_CHK_TIME = (datetime.now() + timedelta(seconds = 1)).strftime("%H:%M:%S") 
-TRTRADE_RUN_TIME = (datetime.now() + timedelta(minutes = 0.3)).strftime("%H:%M:%S") 
-TRTRADE_FIN_TIME = (datetime.now() + timedelta(minutes = 7)).strftime("%H:%M:%S") 
-TRTRADE_RUN_INTERVAL = 10 # second # time to rerun trtrader during TRTRADE_RUN_TIME until TRTRADE_FIN_TIME
-RUN_PENDING_INTERVAL = 10 # time to rerun different processes under controller schedule, e.g., vershin checker, 
+# VERSION_CHK_TIME = (datetime.now() + timedelta(seconds = 5)).strftime("%H:%M:%S")  # for quick test
+# TRTRADE_RUN_TIME = (datetime.now() + timedelta(minutes = 1)).strftime("%H:%M:%S")  # for quick test 
+# TRTRADE_FIN_TIME = (datetime.now() + timedelta(minutes = 10)).strftime("%H:%M:%S")  # for quick test
+TRTRADE_RUN_INTERVAL = 150 # second # time to rerun trtrader during TRTRADE_RUN_TIME until TRTRADE_FIN_TIME
+RUN_PENDING_INTERVAL = 150 # time to rerun different processes under controller schedule, e.g., vershin checker, 
 ################################################################################################
 TRTRADE_RUN_DTIME = dtime.fromisoformat(TRTRADE_RUN_TIME)
 TRTRADE_FIN_DTIME = dtime.fromisoformat(TRTRADE_FIN_TIME)
@@ -43,7 +43,7 @@ class Controller():
             try:
                 schedule.run_pending()
                 time.sleep(RUN_PENDING_INTERVAL)
-                print(time.strftime("c%M:%S"), end="\r") # Exception for trade_log_print (tl_print)
+                tl_print(time.strftime("c%H:%M:%S")) #, end="\r") # Exception for trade_log_print (tl_print)
                 # print('.', end='')
             except KeyboardInterrupt:
                 tl_print("Keyboard Interrupt at controller main loop")
@@ -105,7 +105,7 @@ class Controller():
             except KeyboardInterrupt: 
                 tl_print("Keyboard Interrupt Detected at main_routine_func of controller ")
                 break
-        tl_print("TrTrader finishes at TRTRADE_FIN_DTIME, current time: "+time.strftime("%Y/%m/%d %H:%M:%S"))
+        tl_print("TrTrader finished at TRTRADE_FIN_DTIME, current time: "+time.strftime("%Y/%m/%d %H:%M:%S"))
         trtrader.close_()
         del trtrader
         app.quit()

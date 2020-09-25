@@ -89,7 +89,8 @@ class TrTrader():
         trtrade_list_yetitems = self.trtrade_list.loc[self.trtrade_list['note']=='yet']
         if len(trtrade_list_yetitems) == 0: 
             if PRINT_TO_SCREEN:
-                print(time.strftime("t%M:%S"), end="\r")  # Exception for trade_log_print (tl_print)
+                tl_print(time.strftime("t%H:%M:%S")) #, end="\r")  # Exception for trade_log_print (tl_print)
+                # print('.', end='')
             if USE_SIMULATOR:
                 return False
         else: 
